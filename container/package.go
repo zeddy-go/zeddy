@@ -18,6 +18,10 @@ func Resolve[T any](key ...string) (result T, err error) {
 	return
 }
 
+func ResolveType(t reflect.Type, key ...string) (reflect.Value, error) {
+	return Default.resolveValue(t, key...)
+}
+
 func Invoke(f any) (results []reflect.Value, err error) {
 	return Default.Invoke(f)
 }
