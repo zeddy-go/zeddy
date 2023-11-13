@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/stretchr/testify/require"
 	"reflect"
-	"runtime"
 	"testing"
 )
 
@@ -109,29 +108,84 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	})
 }
 
-//func TestContainer_Bind(t *testing.T) {
-//	a := 1
-//	f := func() {
-//		a++
-//	}
-//	c := &Container{}
-//	c.Bind(f)
-//}
-
-func a() {
-	println(123)
-}
-
-func TestXxx(t *testing.T) {
-
-	b := func() {
-		println(123)
+func TestContainer_PkgBindAndResolve(t *testing.T) {
+	type Test struct {
+		A int
+	}
+	testProvider := func() *Test {
+		return &Test{
+			A: 1,
+		}
 	}
 
-	c := func() {
-		b()
-	}
+	t.Run("test nest resolve", func(t *testing.T) {
+		type Test2 struct {
+			A int
+		}
+		type Test3 struct {
+			A int
+		}
+		test2Provider := func(test1 *Test) *Test2 {
+			return &Test2{
+				A: test1.A,
+			}
+		}
+		test3Provider := func(test2 *Test) *Test3 {
+			return &Test3{
+				A: test2.A,
+			}
+		}
 
-	f := runtime.FuncForPC(reflect.ValueOf(c).Pointer())
-	println(f.Name())
+		Register(testProvider)
+		Register(test2Provider)
+		Register(test3Provider)
+
+		test3, err := Resolve[*Test3]()
+		require.Nil(t, err)
+		require.Equal(t, 1, test3.A)
+	})
+
+	t.Run("test struct ptr", func(t *testing.T) {
+		t.Parallel()
+		Register(testProvider)
+
+		test, err := Resolve[*Test]()
+		require.Nil(t, err)
+		require.Equal(t, 1, test.A)
+
+		test2, err := Resolve[*Test]()
+		require.Nil(t, err)
+		require.Equal(t, 1, test2.A)
+
+		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
+	})
+
+	t.Run("test struct ptr singleton", func(t *testing.T) {
+		t.Parallel()
+		Register(testProvider, WithSingleton(), WithKey("test1"))
+
+		test, err := Resolve[*Test]("test1")
+		require.Nil(t, err)
+
+		test2, err := Resolve[*Test]("test1")
+		require.Nil(t, err)
+
+		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
+	})
+
+	t.Run("test func", func(t *testing.T) {
+		t.Parallel()
+		var a int
+		f := func(a *int) { *a = 1 }
+		funcProvider := func() func(*int) {
+			return f
+		}
+		Register(funcProvider)
+
+		tmp, err := Resolve[func(a *int)]()
+		require.Nil(t, err)
+
+		tmp(&a)
+		require.Equal(t, 1, a)
+	})
 }
