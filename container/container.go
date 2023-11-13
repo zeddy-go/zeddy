@@ -7,9 +7,15 @@ import (
 	"sync"
 )
 
+func NewContainer() *Container {
+	return &Container{
+		stuffs: make(map[reflect.Type][]*Stuff),
+	}
+}
+
 type Container struct {
 	stuffs map[reflect.Type][]*Stuff
-	lock   sync.Mutex
+	lock   sync.RWMutex
 }
 
 func (c *Container) Register(stuff *Stuff) {
@@ -19,7 +25,7 @@ func (c *Container) Register(stuff *Stuff) {
 	stuff.SetContainer(c)
 	tp := stuff.GetType()
 	if _, ok := c.stuffs[tp]; !ok {
-		c.stuffs[stuff.GetType()] = make([]*Stuff, 5)
+		c.stuffs[stuff.GetType()] = make([]*Stuff, 0, 5)
 	}
 
 	c.stuffs[tp] = append(c.stuffs[tp], stuff)
@@ -62,13 +68,15 @@ func (c *Container) Resolve(tp reflect.Type, key ...string) (instance any, err e
 }
 
 func (c *Container) resolveValue(tp reflect.Type, key ...string) (instance reflect.Value, err error) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
 	stuffs, ok := c.stuffs[tp]
 	if !ok {
 		return reflect.Value{}, errors.New("stuff not found")
 	}
 
 	for _, item := range stuffs {
-		if item.key == slicex.First(key...) {
+		if item.Key == slicex.First(key...) {
 			instance, err = item.GetInstance()
 			return
 		}

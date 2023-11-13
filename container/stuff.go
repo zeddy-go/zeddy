@@ -5,6 +5,18 @@ import (
 	"reflect"
 )
 
+func WithSingleton() func(*Stuff) {
+	return func(stuff *Stuff) {
+		stuff.singleton = true
+	}
+}
+
+func WithKey(key string) func(*Stuff) {
+	return func(stuff *Stuff) {
+		stuff.Key = key
+	}
+}
+
 func NewStuff(instanceOrProvider any, sets ...func(*Stuff)) *Stuff {
 	v := reflect.ValueOf(instanceOrProvider)
 	switch v.Kind() {
@@ -40,7 +52,7 @@ func NewStuffUseInstance(instance reflect.Value, sets ...func(*Stuff)) *Stuff {
 }
 
 type Stuff struct {
-	key       string        //键
+	Key       string        //键
 	provider  reflect.Value //实例化函数
 	instance  reflect.Value //实例
 	singleton bool          //是否单例
@@ -75,7 +87,7 @@ func (s *Stuff) create() (instance reflect.Value, err error) {
 		}
 	}
 
-	if results[0].IsValid() {
+	if !results[0].IsValid() {
 		err = errors.New("no valid result")
 		return
 	}
@@ -85,7 +97,7 @@ func (s *Stuff) create() (instance reflect.Value, err error) {
 
 func (s *Stuff) GetInstance() (v reflect.Value, err error) {
 	if s.singleton {
-		if s.instance.IsValid() {
+		if !s.instance.IsValid() {
 			s.instance, err = s.create()
 			if err != nil {
 				return
