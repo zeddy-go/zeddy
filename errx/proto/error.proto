@@ -1,0 +1,25 @@
+//cd .. && protoc -I ./proto ./proto/error.proto --go_out=./pb --go-grpc_out=./pb --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative
+
+syntax = "proto3";
+
+package common.error;
+
+option go_package = "error";
+
+message Map {
+  map<string, Value> Fields = 1;
+}
+
+message List {
+  repeated Value List = 1;
+}
+
+message Value {
+  oneof Kind {
+    int32 Int32Val = 1;
+    int64 Int64Val = 2;
+    string StrVal = 3;
+    Map MapVal = 4;
+    List ListVal = 5;
+  }
+}
