@@ -7,8 +7,6 @@ import (
 	"sync"
 )
 
-var Default = NewContainer()
-
 func NewContainer() *Container {
 	return &Container{
 		stuffs: make(map[reflect.Type][]*Stuff),
