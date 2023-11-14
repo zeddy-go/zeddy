@@ -169,3 +169,11 @@ func (e Errx) GRPCStatus() *status.Status {
 
 	return s
 }
+
+func GetErrxField[T any](err any, key DetailKey) (result T) {
+	tmp, _ := err.(Errx).Get(key)
+	if tmp != nil {
+		return tmp.(T)
+	}
+	return
+}
