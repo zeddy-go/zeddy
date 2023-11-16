@@ -25,7 +25,7 @@ func (c *Container) Register(stuff *Stuff) {
 	stuff.SetContainer(c)
 	tp := stuff.GetType()
 	if _, ok := c.stuffs[tp]; !ok {
-		c.stuffs[stuff.GetType()] = make([]*Stuff, 0, 5)
+		c.stuffs[tp] = make([]*Stuff, 0, 5)
 	}
 
 	c.stuffs[tp] = append(c.stuffs[tp], stuff)
