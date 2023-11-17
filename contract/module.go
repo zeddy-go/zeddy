@@ -16,8 +16,14 @@ type IShouldRegisterRoute interface {
 	RegisterRoute(r IRouter)
 }
 
-type IModule interface {
+type IHasSubModule interface {
 	Register(subs ...IModule)
+}
 
+type IShouldBoot interface {
+	Boot()
+}
+
+type IModule interface {
 	Init()
 }
