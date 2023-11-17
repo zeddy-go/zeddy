@@ -1,8 +1,14 @@
 package container
 
-import "reflect"
+import (
+	"reflect"
+)
 
 var Default = NewContainer()
+
+func Bind[T any](providerOrInstance any, sets ...func(*Stuff)) {
+	Default.Bind(reflect.ValueOf(new(T)).Elem().Type(), NewStuff(providerOrInstance, sets...))
+}
 
 func Register(providerOrInstance any, sets ...func(*Stuff)) {
 	Default.Register(NewStuff(providerOrInstance, sets...))

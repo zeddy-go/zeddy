@@ -12,10 +12,6 @@ type IRouter interface {
 	Group(prefix string, middlewares ...any) IRouter
 }
 
-type IShouldRegisterRoute interface {
-	RegisterRoute(r IRouter)
-}
-
 type IHasSubModule interface {
 	Register(subs ...IModule)
 }

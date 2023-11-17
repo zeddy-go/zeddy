@@ -41,7 +41,8 @@ func NewStuffUseProvider(provider reflect.Value, sets ...func(*Stuff)) *Stuff {
 
 func NewStuffUseInstance(instance reflect.Value, sets ...func(*Stuff)) *Stuff {
 	s := &Stuff{
-		instance: instance,
+		instance:  instance,
+		singleton: true,
 	}
 
 	for _, set := range sets {

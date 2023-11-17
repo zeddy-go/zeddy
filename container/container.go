@@ -18,6 +18,30 @@ type Container struct {
 	lock   sync.RWMutex
 }
 
+func (c *Container) BindType(destType reflect.Type, srcType reflect.Type) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	stuffs, ok := c.stuffs[srcType]
+	if !ok {
+		return
+	}
+
+	c.stuffs[destType] = stuffs
+}
+
+func (c *Container) Bind(t reflect.Type, stuff *Stuff) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	stuff.SetContainer(c)
+	if _, ok := c.stuffs[t]; !ok {
+		c.stuffs[t] = make([]*Stuff, 0, 5)
+	}
+
+	c.stuffs[t] = append(c.stuffs[t], stuff)
+}
+
 func (c *Container) Register(stuff *Stuff) {
 	c.lock.Lock()
 	defer c.lock.Unlock()
