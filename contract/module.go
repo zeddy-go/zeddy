@@ -17,7 +17,7 @@ type IShouldRegisterRoute interface {
 }
 
 type IModule interface {
-	Register(sub IModule)
+	Register(subs ...IModule)
 
 	Init()
 }
