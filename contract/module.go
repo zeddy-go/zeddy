@@ -21,5 +21,5 @@ type IShouldBoot interface {
 }
 
 type IModule interface {
-	Init()
+	Name() string
 }
