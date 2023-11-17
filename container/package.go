@@ -9,8 +9,8 @@ func Register(providerOrInstance any, sets ...func(*Stuff)) {
 }
 
 func Resolve[T any](key ...string) (result T, err error) {
-	var tmp T
-	res, err := Default.Resolve(reflect.TypeOf(tmp), key...)
+	tmp := new(T)
+	res, err := Default.Resolve(reflect.ValueOf(tmp).Elem().Type(), key...)
 	if err != nil {
 		return
 	}
