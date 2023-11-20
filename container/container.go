@@ -55,6 +55,7 @@ func (c *Container) Register(stuff *Stuff) {
 	c.stuffs[tp] = append(c.stuffs[tp], stuff)
 }
 
+// Invoke 执行一个函数,函数参数通过容器注入,如果调用函数没有问题,那么err返回值尝试用被调用函数的最后一个返回值.
 func (c *Container) Invoke(f any) (result []reflect.Value, err error) {
 	var (
 		x  reflect.Value
@@ -76,6 +77,12 @@ func (c *Container) Invoke(f any) (result []reflect.Value, err error) {
 	}
 
 	result = x.Call(params)
+
+	if len(result) > 0 {
+		if e, ok := result[len(result)-1].Interface().(error); ok {
+			err = e
+		}
+	}
 
 	return
 }
