@@ -55,12 +55,27 @@ func (c *Container) Register(stuff *Stuff) {
 	c.stuffs[tp] = append(c.stuffs[tp], stuff)
 }
 
+type InvokeOpts struct {
+	params map[int]any //map[参数序号]参数
+}
+
+func WithInvokeParams(params map[int]any) func(*InvokeOpts) {
+	return func(opts *InvokeOpts) {
+		opts.params = params
+	}
+}
+
 // Invoke 执行一个函数,函数参数通过容器注入,如果调用函数没有问题,那么err返回值尝试用被调用函数的最后一个返回值.
-func (c *Container) Invoke(f any) (result []reflect.Value, err error) {
+func (c *Container) Invoke(f any, sets ...func(*InvokeOpts)) (result []reflect.Value, err error) {
 	var (
-		x  reflect.Value
-		ok bool
+		x    reflect.Value
+		ok   bool
+		opts InvokeOpts
 	)
+
+	for _, set := range sets {
+		set(&opts)
+	}
 
 	if x, ok = f.(reflect.Value); !ok {
 		x = reflect.ValueOf(f)
@@ -69,9 +84,13 @@ func (c *Container) Invoke(f any) (result []reflect.Value, err error) {
 	params := make([]reflect.Value, 0, x.Type().NumIn())
 	for i := 0; i < x.Type().NumIn(); i++ {
 		var p reflect.Value
-		p, err = c.resolveValue(x.Type().In(i))
-		if err != nil {
-			return
+		if param, ok := opts.params[i]; ok {
+			p = reflect.ValueOf(param)
+		} else {
+			p, err = c.resolveValue(x.Type().In(i))
+			if err != nil {
+				return
+			}
 		}
 		params = append(params, p)
 	}
