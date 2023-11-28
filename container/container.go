@@ -2,7 +2,7 @@ package container
 
 import (
 	"errors"
-	"github.com/zeddy-go/core/slicex"
+	"github.com/zeddy-go/zeddy/slicex"
 	"reflect"
 	"sync"
 )

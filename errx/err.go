@@ -1,6 +1,6 @@
 package errx
 
-import "github.com/zeddy-go/core/slicex"
+import "github.com/zeddy-go/zeddy/slicex"
 
 type DetailKey string
 

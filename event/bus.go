@@ -2,7 +2,7 @@ package event
 
 import (
 	"errors"
-	"github.com/zeddy-go/core/container"
+	"github.com/zeddy-go/zeddy/container"
 	"reflect"
 	"sync"
 )

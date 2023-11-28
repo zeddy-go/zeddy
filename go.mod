@@ -1,4 +1,4 @@
-module github.com/zeddy-go/core
+module github.com/zeddy-go/zeddy
 
 go 1.21
 

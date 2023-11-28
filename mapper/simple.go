@@ -1,7 +1,7 @@
 package mapper
 
 import (
-	"github.com/zeddy-go/core/reflectx"
+	"github.com/zeddy-go/zeddy/reflectx"
 	"reflect"
 )
 
