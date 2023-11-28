@@ -3,8 +3,8 @@ package wgorm
 import (
 	"github.com/sony/sonyflake"
 	"github.com/spf13/viper"
-	"github.com/zeddy-go/database"
 	"github.com/zeddy-go/zeddy/container"
+	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/module"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"

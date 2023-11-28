@@ -2,7 +2,7 @@ package wgorm
 
 import (
 	"fmt"
-	"github.com/zeddy-go/database"
+	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/slicex"
 	"reflect"
 	"strings"

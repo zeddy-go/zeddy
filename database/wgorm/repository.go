@@ -2,7 +2,7 @@ package wgorm
 
 import (
 	"errors"
-	"github.com/zeddy-go/database"
+	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/mapper"
 	"gorm.io/gorm"
 )
