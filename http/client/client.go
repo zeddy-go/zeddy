@@ -35,22 +35,22 @@ type iClient interface {
 	Request(req *http.Request) iResponse
 }
 
-type OptFunc func(*client)
+type OptFunc func(*Client)
 
 func WithBaseUrl(baseUrl string) OptFunc {
-	return func(client *client) {
+	return func(client *Client) {
 		client.BaseUrl = baseUrl
 	}
 }
 
 func WithTimeout(d time.Duration) OptFunc {
-	return func(c *client) {
+	return func(c *Client) {
 		c.timeout = d
 	}
 }
 
 func NewClient(opts ...OptFunc) iClient {
-	c := &client{
+	c := &Client{
 		header:  make(http.Header),
 		query:   make(url.Values),
 		cookies: make([]*http.Cookie, 0),
@@ -62,7 +62,7 @@ func NewClient(opts ...OptFunc) iClient {
 	return c
 }
 
-type client struct {
+type Client struct {
 	BaseUrl string
 	debug   bool
 	header  http.Header
@@ -72,11 +72,11 @@ type client struct {
 	clone   bool
 }
 
-func (c *client) Clone() *client {
+func (c *Client) Clone() *Client {
 	if c.clone {
 		return c
 	} else {
-		return &client{
+		return &Client{
 			BaseUrl: c.BaseUrl,
 			debug:   c.debug,
 			timeout: c.timeout,
@@ -88,71 +88,71 @@ func (c *client) Clone() *client {
 	}
 }
 
-func (c *client) SetHeader(header http.Header) iClient {
+func (c *Client) SetHeader(header http.Header) iClient {
 	newClient := c.Clone()
 	newClient.header = header
 	return newClient
 }
 
-func (c *client) AddHeader(key string, value string) iClient {
+func (c *Client) AddHeader(key string, value string) iClient {
 	newClient := c.Clone()
 	newClient.header.Add(key, value)
 	return newClient
 }
 
-func (c *client) Debug() iClient {
+func (c *Client) Debug() iClient {
 	newClient := c.Clone()
 	newClient.debug = true
 	return newClient
 }
 
-func (c *client) SetTimeout(d time.Duration) iClient {
+func (c *Client) SetTimeout(d time.Duration) iClient {
 	newClient := c.Clone()
 	newClient.timeout = d
 	return newClient
 }
 
-func (c *client) SetQuery(values url.Values) iClient {
+func (c *Client) SetQuery(values url.Values) iClient {
 	newClient := c.Clone()
 	newClient.query = values
 	return newClient
 }
 
-func (c *client) AddQuery(key string, value string) iClient {
+func (c *Client) AddQuery(key string, value string) iClient {
 	newClient := c.Clone()
 	newClient.query.Add(key, value)
 	return newClient
 }
 
-func (c *client) SetCookies(cookies []*http.Cookie) iClient {
+func (c *Client) SetCookies(cookies []*http.Cookie) iClient {
 	newClient := c.Clone()
 	newClient.cookies = cookies
 	return newClient
 }
 
-func (c *client) AddCookie(cookie *http.Cookie) iClient {
+func (c *Client) AddCookie(cookie *http.Cookie) iClient {
 	newClient := c.Clone()
 	newClient.cookies = append(c.cookies, cookie)
 	return newClient
 }
 
-func (c *client) Get(url string) iResponse {
+func (c *Client) Get(url string) iResponse {
 	return c.get(url)
 }
 
-func (c *client) get(url string) iResponse {
+func (c *Client) get(url string) iResponse {
 	return c.Request(c.makeRequest(http.MethodGet, url, nil))
 }
 
-func (c *client) Delete(url string) iResponse {
+func (c *Client) Delete(url string) iResponse {
 	return c.delete(url)
 }
 
-func (c *client) delete(url string) iResponse {
+func (c *Client) delete(url string) iResponse {
 	return c.Request(c.makeRequest(http.MethodDelete, url, nil))
 }
 
-func (c *client) PutJson(url string, data any) iResponse {
+func (c *Client) PutJson(url string, data any) iResponse {
 	content, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -161,7 +161,7 @@ func (c *client) PutJson(url string, data any) iResponse {
 	return c.put(url, bytes.NewReader(content))
 }
 
-func (c *client) PutXml(url string, data any) iResponse {
+func (c *Client) PutXml(url string, data any) iResponse {
 	content, err := xml.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -170,11 +170,11 @@ func (c *client) PutXml(url string, data any) iResponse {
 	return c.put(url, bytes.NewReader(content))
 }
 
-func (c *client) put(url string, body io.Reader) iResponse {
+func (c *Client) put(url string, body io.Reader) iResponse {
 	return c.Request(c.makeRequest(http.MethodPut, url, body))
 }
 
-func (c *client) PostJson(url string, data any) iResponse {
+func (c *Client) PostJson(url string, data any) iResponse {
 	content, err := json.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -184,7 +184,7 @@ func (c *client) PostJson(url string, data any) iResponse {
 	return c.post(url, bytes.NewReader(content))
 }
 
-func (c *client) PostXml(url string, data any) iResponse {
+func (c *Client) PostXml(url string, data any) iResponse {
 	content, err := xml.Marshal(data)
 	if err != nil {
 		panic(err)
@@ -193,7 +193,7 @@ func (c *client) PostXml(url string, data any) iResponse {
 	return c.post(url, bytes.NewReader(content))
 }
 
-func (c *client) PostForm(u string, data any) iResponse {
+func (c *Client) PostForm(u string, data any) iResponse {
 	c.header.Set("Content-Type", "application/x-www-form-urlencoded")
 	vData := reflect.ValueOf(data)
 	if vData.Kind() == reflect.Pointer {
@@ -239,11 +239,11 @@ func (c *client) PostForm(u string, data any) iResponse {
 	return c.post(u, strings.NewReader(values.Encode()))
 }
 
-func (c *client) post(url string, body io.Reader) iResponse {
+func (c *Client) post(url string, body io.Reader) iResponse {
 	return c.Request(c.makeRequest(http.MethodPost, url, body))
 }
 
-func (c *client) buildUrl(u string) string {
+func (c *Client) buildUrl(u string) string {
 	if !strings.HasPrefix(u, "http") {
 		u = fmt.Sprintf(
 			"%s/%s",
@@ -268,7 +268,7 @@ func (c *client) buildUrl(u string) string {
 	return parsedUrl.String()
 }
 
-func (c *client) makeRequest(method string, url string, body io.Reader) (req *http.Request) {
+func (c *Client) makeRequest(method string, url string, body io.Reader) (req *http.Request) {
 	req, err := http.NewRequest(method, c.buildUrl(url), body)
 	if err != nil {
 		panic(err)
@@ -287,7 +287,7 @@ func (c *client) makeRequest(method string, url string, body io.Reader) (req *ht
 	return
 }
 
-func (c *client) Request(req *http.Request) (resp iResponse) {
+func (c *Client) Request(req *http.Request) (resp iResponse) {
 	httpClient := http.Client{
 		Timeout: c.timeout,
 	}
