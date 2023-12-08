@@ -7,35 +7,17 @@ import (
 	"net/http"
 )
 
-type iResponse interface {
-	// Response return origin *http.Response, may close by yourself
-	Response() (res *http.Response, err error)
-	ScanJsonBody(data any) (err error)
-	ScanXmlBody(data any) (err error)
+type Response struct {
+	*http.Response
 }
 
-func newResponse(origin *http.Response, err error) iResponse {
-	return &response{
-		origin: origin,
-		err:    err,
-	}
+func (r *Response) IsError() bool {
+	return r.Response.StatusCode >= 400
 }
 
-type response struct {
-	origin *http.Response
-	err    error
-}
-
-func (r response) Response() (res *http.Response, err error) {
-	return r.origin, err
-}
-
-func (r response) ScanJsonBody(data any) (err error) {
-	if r.err != nil {
-		return r.err
-	}
-	defer r.origin.Body.Close()
-	content, err := io.ReadAll(r.origin.Body)
+func (r *Response) ScanJsonBody(data any) (err error) {
+	defer r.Response.Body.Close()
+	content, err := io.ReadAll(r.Response.Body)
 	if err != nil {
 		return
 	}
@@ -43,12 +25,9 @@ func (r response) ScanJsonBody(data any) (err error) {
 	return
 }
 
-func (r response) ScanXmlBody(data any) (err error) {
-	if r.err != nil {
-		return r.err
-	}
-	defer r.origin.Body.Close()
-	content, err := io.ReadAll(r.origin.Body)
+func (r *Response) ScanXmlBody(data any) (err error) {
+	defer r.Response.Body.Close()
+	content, err := io.ReadAll(r.Response.Body)
 	if err != nil {
 		return
 	}
