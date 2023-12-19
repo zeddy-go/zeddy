@@ -12,6 +12,7 @@ require (
 	github.com/spf13/viper v1.17.0
 	github.com/stretchr/testify v1.8.4
 	github.com/timandy/routine v1.1.3
+	golang.org/x/mod v0.12.0
 	google.golang.org/grpc v1.59.0
 	google.golang.org/protobuf v1.31.0
 	gorm.io/driver/mysql v1.5.2
