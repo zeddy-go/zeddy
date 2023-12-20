@@ -24,7 +24,7 @@ var modName = flag.String("n", "", "module name, default dest dir name")
 var toTemplate = flag.Bool("toTemplate", false, "project convert to template")
 var fromTemplate = flag.Bool("fromTemplate", false, "template convert to project")
 
-var ignores = []string{".git", "go.sum", "go.mod"}
+var ignores = []string{".git", "go.sum", "go.mod", "tmp", "pb", "client"}
 
 func main() {
 	flag.Parse()
