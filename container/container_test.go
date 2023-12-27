@@ -189,3 +189,13 @@ func TestContainer_PkgBindAndResolve(t *testing.T) {
 		require.Equal(t, 1, a)
 	})
 }
+
+type testStruct struct {
+}
+
+type testStruct2 testStruct
+
+func TestXxx(t *testing.T) {
+	a := testStruct{}
+	_ = reflect.ValueOf(a).Convert(reflect.TypeOf((*testStruct2)(nil)).Elem()).Interface().(testStruct2)
+}
