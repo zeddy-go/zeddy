@@ -7,7 +7,7 @@ import (
 var Default = NewContainer()
 
 func Bind[T any](providerOrInstance any, sets ...func(*Stuff)) {
-	Default.Bind(reflect.ValueOf(new(T)).Elem().Type(), NewStuff(providerOrInstance, sets...))
+	Default.Bind(reflect.TypeOf((*T)(nil)).Elem(), providerOrInstance, sets...)
 }
 
 func Register(providerOrInstance any, sets ...func(*Stuff)) {
