@@ -198,4 +198,5 @@ type testStruct2 testStruct
 func TestXxx(t *testing.T) {
 	a := testStruct{}
 	_ = reflect.ValueOf(a).Convert(reflect.TypeOf((*testStruct2)(nil)).Elem()).Interface().(testStruct2)
+	//TODO: resolve的时候的类型转换
 }
