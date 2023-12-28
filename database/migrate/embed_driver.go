@@ -61,7 +61,6 @@ func (e *EmbedDriver) Add(f fs.FS) {
 	sort.Slice(e.sorts, func(i, j int) bool {
 		return e.sorts[i] < e.sorts[j]
 	})
-	return
 }
 
 func (e *EmbedDriver) Open(url string) (source.Driver, error) {

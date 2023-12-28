@@ -13,13 +13,13 @@ func NewModule() *Module {
 	}
 
 	driver := NewFsDriver()
-	container.Register(driver, container.WithSingleton())
-	container.Register(func(conf *viper.Viper) IMigrator {
+	container.Bind[*EmbedDriver](driver, container.AsSingleton())
+	container.Bind[IMigrator](func(conf *viper.Viper) IMigrator {
 		return &DefaultMigrator{
 			DatabaseUrl:    database.DSN(conf.GetString("database.dsn")).Encode(),
 			SourceInstance: driver,
 		}
-	}, container.WithSingleton())
+	}, container.AsSingleton())
 
 	return m
 }

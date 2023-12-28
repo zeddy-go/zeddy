@@ -2,168 +2,223 @@ package container
 
 import (
 	"errors"
-	"fmt"
-	"github.com/zeddy-go/zeddy/slicex"
 	"reflect"
-	"sync"
+)
+
+var (
+	ErrNotFound     = errors.New("not found")
+	ErrCanNotBind   = errors.New("can not bind")
+	ErrTypeNotMatch = errors.New("type not match")
 )
 
 func NewContainer() *Container {
 	return &Container{
-		stuffs: make(map[reflect.Type][]*Stuff),
+		providers: make(map[reflect.Type]reflect.Value),
+		instances: make(map[reflect.Type]reflect.Value),
 	}
 }
 
 type Container struct {
-	stuffs map[reflect.Type][]*Stuff
-	lock   sync.RWMutex
+	providers map[reflect.Type]reflect.Value
+	instances map[reflect.Type]reflect.Value
 }
 
-func (c *Container) BindType(destType reflect.Type, srcType reflect.Type) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
+type bindOpts struct {
+	Singleton bool
+}
 
-	stuffs, ok := c.stuffs[srcType]
-	if !ok {
+func AsSingleton() func(*bindOpts) {
+	return func(opts *bindOpts) {
+		opts.Singleton = true
+	}
+}
+
+func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bindOpts)) (err error) {
+	options := &bindOpts{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	if t == value.Type() {
+		c.bindConsistent(t, value, options)
+	} else {
+		err = c.bindNotConsistent(t, value, options)
+	}
+
+	return
+}
+
+func (c *Container) bindNotConsistent(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
+	if value.Kind() != reflect.Func {
+		err = ErrCanNotBind
 		return
 	}
 
-	c.stuffs[destType] = stuffs
+	bindable, shouldConvert := c.isConsistent(t, value.Type().Out(0))
+	if !bindable {
+		err = ErrCanNotBind
+		return
+	}
+
+	if options.Singleton {
+		var result reflect.Value
+		result, err = c.invokeAndGetType(value, t)
+		if err != nil {
+			return
+		}
+		if shouldConvert {
+			c.instances[t] = reflect.ValueOf(result).Convert(t)
+		} else {
+			c.instances[t] = result
+		}
+	} else {
+		c.providers[t] = value
+	}
+
+	return
 }
 
-// Bind 实列或者provider函数到指定的类型上,
-// 它会检查**provider返回值/实例**的类型是否与指定的type一致.
-func (c *Container) Bind(t reflect.Type, providerOrInstance any, sets ...func(*Stuff)) {
-	typeV := reflect.TypeOf(providerOrInstance)
-	if typeV.Kind() == reflect.Func {
-		typeV = typeV.Out(0) //固定期望第一个就是provider返回的值
-	}
-
-	if !c.bindable(t, typeV) {
-		panic(errors.New(fmt.Sprintf("type [%s] can not bind to type [%s]", typeV.String(), t.String())))
-	}
-
-	stuff := NewStuff(providerOrInstance, sets...)
-	stuff.SetContainer(c)
-
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if _, ok := c.stuffs[t]; !ok {
-		c.stuffs[t] = make([]*Stuff, 0, 5)
-	}
-
-	c.stuffs[t] = append(c.stuffs[t], stuff)
-}
-
-func (c *Container) bindable(dest reflect.Type, src reflect.Type) bool {
+func (c *Container) isConsistent(dest reflect.Type, src reflect.Type) (canBind bool, shouldConvert bool) {
 	//一致性检查:
 	// 1. 如果t是接口, 检查给定的**provider返回值或者实例**的类型是否实现了这个接口
 	// 2. 如果t是普通类型, 检查给定的**provider返回值或者实例**的类型是否等于或者可以转换成t
 	// 3. 判断按执行速度排序
 	if dest == src {
-		return true
+		canBind = true
+		return
 	}
 
 	if dest.Kind() == reflect.Interface && src.Implements(dest) {
-		return true
+		canBind = true
+		return
 	}
 
 	if src.ConvertibleTo(dest) {
-		return true
-	}
-
-	return false
-}
-
-func (c *Container) Register(stuff *Stuff) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	stuff.SetContainer(c)
-	tp := stuff.GetType()
-	if _, ok := c.stuffs[tp]; !ok {
-		c.stuffs[tp] = make([]*Stuff, 0, 5)
-	}
-
-	c.stuffs[tp] = append(c.stuffs[tp], stuff)
-}
-
-type InvokeOpts struct {
-	params map[int]any //map[参数序号]参数
-}
-
-func WithInvokeParams(params map[int]any) func(*InvokeOpts) {
-	return func(opts *InvokeOpts) {
-		opts.params = params
-	}
-}
-
-// Invoke 执行一个函数,函数参数通过容器注入,如果调用函数没有问题,那么err返回值尝试用被调用函数的最后一个返回值.
-func (c *Container) Invoke(f any, sets ...func(*InvokeOpts)) (result []reflect.Value, err error) {
-	var (
-		x    reflect.Value
-		ok   bool
-		opts InvokeOpts
-	)
-
-	for _, set := range sets {
-		set(&opts)
-	}
-
-	if x, ok = f.(reflect.Value); !ok {
-		x = reflect.ValueOf(f)
-	}
-
-	params := make([]reflect.Value, 0, x.Type().NumIn())
-	for i := 0; i < x.Type().NumIn(); i++ {
-		var p reflect.Value
-		if param, ok := opts.params[i]; ok {
-			p = reflect.ValueOf(param)
-		} else {
-			p, err = c.resolveValue(x.Type().In(i))
-			if err != nil {
-				return
-			}
-		}
-		params = append(params, p)
-	}
-
-	result = x.Call(params)
-
-	if len(result) > 0 {
-		if e, ok := result[len(result)-1].Interface().(error); ok {
-			err = e
-		}
+		canBind = true
+		shouldConvert = true
+		return
 	}
 
 	return
 }
 
-func (c *Container) Resolve(tp reflect.Type, key ...string) (instance any, err error) {
-	tmp, err := c.resolveValue(tp, key...)
+// bindConsistent 目标类型与给定值类型一致的情况
+func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options *bindOpts) {
+	//如果要绑定的类型是函数, 那就无视options中的singleton选项, 直接绑定到instances去
+	if t.Kind() == reflect.Func {
+		c.instances[t] = value
+		return
+	}
+
+	//如果要绑定的类型不是函数, 就要判断是否为singleton, 来做合适的绑定
+	if options.Singleton && t.Kind() == reflect.Pointer {
+		c.instances[t] = value
+		return
+	}
+
+	if options.Singleton && t.Kind() != reflect.Pointer {
+		c.instances[t] = value.Addr()
+		return
+	}
+
+	if t.Kind() == reflect.Pointer {
+		c.providers[t] = reflect.ValueOf(func() any {
+			return reflect.New(t.Elem()).Interface()
+		})
+	} else {
+		c.providers[t] = reflect.ValueOf(func() any {
+			return reflect.New(t).Elem().Interface()
+		})
+	}
+}
+
+func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
+	result, ok := c.instances[t]
+	if ok {
+		return
+	}
+
+	f, ok := c.providers[t]
+	if ok {
+		result, err = c.invokeAndGetType(f, t)
+		if err != nil {
+			return
+		}
+		return
+	}
+
+	err = ErrNotFound
+	return
+}
+
+func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (result reflect.Value, err error) {
+	results, err := c.Invoke(f)
 	if err != nil {
 		return
 	}
 
-	instance = tmp.Interface()
-
-	return
-}
-
-func (c *Container) resolveValue(tp reflect.Type, key ...string) (instance reflect.Value, err error) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-	stuffs, ok := c.stuffs[tp]
-	if !ok {
-		return reflect.Value{}, errors.New("stuff not found")
+	if len(results) == 0 {
+		err = errors.New("no result returned")
+		return
 	}
 
-	for _, item := range stuffs {
-		if item.Key == slicex.First(key...) {
-			instance, err = item.GetInstance()
+	if len(results) == 2 {
+		if !results[1].IsNil() {
+			err = results[1].Interface().(error)
 			return
 		}
 	}
 
-	return reflect.Value{}, errors.New("stuff not found")
+	result = results[0]
+
+	consistent, shouldConvert := c.isConsistent(resultType, result.Type())
+	if !consistent {
+		err = ErrTypeNotMatch
+		return
+	}
+
+	if shouldConvert {
+		result = result.Convert(resultType)
+	}
+
+	return
+}
+
+func WithParams(params map[int]any) func(*invokeOpts) {
+	return func(opts *invokeOpts) {
+		opts.params = params
+	}
+}
+
+func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
+	options := &invokeOpts{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	p := make([]reflect.Value, 0, f.Type().NumIn())
+	for i := 0; i < f.Type().NumIn(); i++ {
+		var param reflect.Value
+		if len(options.params) > 0 {
+			if p, ok := options.params[i]; ok {
+				param = reflect.ValueOf(p)
+			} else {
+				param, err = c.Resolve(f.Type().In(i))
+				if err != nil {
+					return
+				}
+			}
+		} else {
+			param, err = c.Resolve(f.Type().In(i))
+			if err != nil {
+				return
+			}
+		}
+
+		p = append(p, param)
+	}
+
+	results = f.Call(p)
+
+	return
 }

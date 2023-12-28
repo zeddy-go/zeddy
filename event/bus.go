@@ -2,9 +2,10 @@ package event
 
 import (
 	"errors"
-	"github.com/zeddy-go/zeddy/container"
 	"reflect"
 	"sync"
+
+	"github.com/zeddy-go/zeddy/container"
 )
 
 type Bus struct {
@@ -23,6 +24,7 @@ func (h *Bus) Sub(f any) {
 		panic(errors.New("func only"))
 	}
 
+	//TODO: 重构,感觉可以优化
 	if h.container == nil && vFunc.Type().NumIn() != 1 {
 		panic(errors.New("event handler require must one param in normal mode"))
 	} else if h.container != nil && vFunc.Type().NumIn() < 1 {
@@ -48,7 +50,7 @@ func (h *Bus) Pub(event any) {
 		for _, item := range group {
 			go func(f any) {
 				if h.container != nil {
-					h.container.Invoke(f, container.WithInvokeParams(map[int]any{0: event}))
+					h.container.Invoke(reflect.ValueOf(f), container.WithParams(map[int]any{0: event}))
 				} else {
 					reflect.ValueOf(f).Call([]reflect.Value{eventValue})
 				}

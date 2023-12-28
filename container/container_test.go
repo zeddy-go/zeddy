@@ -36,34 +36,33 @@ func TestContainer_BindAndResolve(t *testing.T) {
 			}
 		}
 
-		c.Register(NewStuff(testProvider))
-		c.Register(NewStuff(test2Provider))
-		c.Register(NewStuff(test3Provider))
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test2)(nil)), reflect.ValueOf(test2Provider)))
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test3)(nil)), reflect.ValueOf(test3Provider)))
 
-		tmp, err := c.Resolve(reflect.TypeOf(&Test3{}))
-		require.Nil(t, err)
+		tmp, err := c.Resolve(reflect.TypeOf((*Test3)(nil)))
+		require.NoError(t, err)
 
-		test3, ok := tmp.(*Test3)
+		test3, ok := tmp.Interface().(*Test3)
 		require.True(t, ok)
 		require.Equal(t, 1, test3.A)
 	})
 
 	t.Run("test struct ptr", func(t *testing.T) {
 		t.Parallel()
-		stuff := NewStuff(testProvider)
-		c.Register(stuff)
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
 
-		tmp, err := c.Resolve(reflect.TypeOf(&Test{}))
+		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
 		require.Nil(t, err)
 
-		test, ok := tmp.(*Test)
+		test, ok := tmp.Interface().(*Test)
 		require.True(t, ok)
 		require.Equal(t, 1, test.A)
 
-		tmp, err = c.Resolve(reflect.TypeOf(&Test{}))
+		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
 		require.Nil(t, err)
 
-		test2, ok := tmp.(*Test)
+		test2, ok := tmp.Interface().(*Test)
 		require.True(t, ok)
 		require.Equal(t, 1, test2.A)
 
@@ -72,19 +71,18 @@ func TestContainer_BindAndResolve(t *testing.T) {
 
 	t.Run("test struct ptr singleton", func(t *testing.T) {
 		t.Parallel()
-		stuff := NewStuff(testProvider, WithSingleton(), WithKey("test1"))
-		c.Register(stuff)
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider), AsSingleton()))
 
-		tmp, err := c.Resolve(reflect.TypeOf(&Test{}), "test1")
-		require.Nil(t, err)
+		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		require.NoError(t, err)
 
-		test, ok := tmp.(*Test)
+		test, ok := tmp.Interface().(*Test)
 		require.True(t, ok)
 
-		tmp, err = c.Resolve(reflect.TypeOf(&Test{}), "test1")
-		require.Nil(t, err)
+		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
+		require.NoError(t, err)
 
-		test2, ok := tmp.(*Test)
+		test2, ok := tmp.Interface().(*Test)
 		require.True(t, ok)
 
 		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
@@ -97,106 +95,24 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		funcProvider := func() func(*int) {
 			return f
 		}
-		stuff := NewStuff(funcProvider)
-		c.Register(stuff)
+		require.NoError(t, c.Bind(reflect.TypeOf(f), reflect.ValueOf(funcProvider)))
 
 		tmp, err := c.Resolve(reflect.TypeOf(f))
-		require.Nil(t, err)
+		require.NoError(t, err)
 
-		tmp.(func(*int))(&a)
+		tmp.Interface().(func(*int))(&a)
 		require.Equal(t, 1, a)
 	})
-}
 
-func TestContainer_PkgBindAndResolve(t *testing.T) {
-	type Test struct {
-		A int
-	}
-	testProvider := func() *Test {
-		return &Test{
-			A: 1,
-		}
-	}
+	t.Run("test alias", func(t *testing.T) {
+		type myTest Test
+		require.NoError(t, c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(testProvider)))
 
-	t.Run("test nest resolve", func(t *testing.T) {
-		type Test2 struct {
-			A int
-		}
-		type Test3 struct {
-			A int
-		}
-		test2Provider := func(test1 *Test) *Test2 {
-			return &Test2{
-				A: test1.A,
-			}
-		}
-		test3Provider := func(test2 *Test) *Test3 {
-			return &Test3{
-				A: test2.A,
-			}
-		}
+		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		require.NoError(t, err)
 
-		Register(testProvider)
-		Register(test2Provider)
-		Register(test3Provider)
-
-		test3, err := Resolve[*Test3]()
-		require.Nil(t, err)
-		require.Equal(t, 1, test3.A)
-	})
-
-	t.Run("test struct ptr", func(t *testing.T) {
-		t.Parallel()
-		Register(testProvider)
-
-		test, err := Resolve[*Test]()
-		require.Nil(t, err)
+		test, ok := tmp.Interface().(*myTest)
+		require.True(t, ok)
 		require.Equal(t, 1, test.A)
-
-		test2, err := Resolve[*Test]()
-		require.Nil(t, err)
-		require.Equal(t, 1, test2.A)
-
-		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
 	})
-
-	t.Run("test struct ptr singleton", func(t *testing.T) {
-		t.Parallel()
-		Register(testProvider, WithSingleton(), WithKey("test1"))
-
-		test, err := Resolve[*Test]("test1")
-		require.Nil(t, err)
-
-		test2, err := Resolve[*Test]("test1")
-		require.Nil(t, err)
-
-		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
-	})
-
-	t.Run("test func", func(t *testing.T) {
-		t.Parallel()
-		var a int
-		f := func(a *int) { *a = 1 }
-		funcProvider := func() func(*int) {
-			return f
-		}
-		Register(funcProvider)
-
-		tmp, err := Resolve[func(a *int)]()
-		require.Nil(t, err)
-
-		tmp(&a)
-		require.Equal(t, 1, a)
-	})
-}
-
-type testStruct struct {
-}
-
-type testStruct2 testStruct
-
-func TestXxx(t *testing.T) {
-	a := testStruct{}
-	_ = reflect.ValueOf(a).Convert(reflect.TypeOf((*testStruct2)(nil)).Elem()).Interface().(testStruct2)
-	//TODO: resolve的时候的类型转换
 }

@@ -1,12 +1,13 @@
 package ginx
 
 import (
+	"net/http"
+	"reflect"
+
 	"github.com/gin-gonic/gin"
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/contract"
 	"github.com/zeddy-go/zeddy/module"
-	"net/http"
-	"reflect"
 )
 
 func WithCustomEngine(e *gin.Engine) func(*Module) {
@@ -66,7 +67,7 @@ func (m *Module) Register(subs ...contract.IModule) {
 		registerMethod := reflect.ValueOf(sub).MethodByName("RegisterRoute")
 
 		if registerMethod.IsValid() && !registerMethod.IsNil() {
-			container.Invoke(registerMethod.Interface())
+			container.Default().Invoke(registerMethod)
 		}
 	}
 }

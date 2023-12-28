@@ -2,12 +2,13 @@ package ginx
 
 import (
 	"errors"
-	"github.com/gin-gonic/gin"
-	"github.com/zeddy-go/zeddy/container"
-	"github.com/zeddy-go/zeddy/reflectx"
 	"io"
 	"net/http"
 	"reflect"
+
+	"github.com/gin-gonic/gin"
+	"github.com/zeddy-go/zeddy/container"
+	"github.com/zeddy-go/zeddy/reflectx"
 )
 
 func GinMiddleware(f any) gin.HandlerFunc {
@@ -74,7 +75,7 @@ func buildParams(fType reflect.Type, ctx *gin.Context) (params []reflect.Value, 
 
 		//TODO: 优化
 		var p reflect.Value
-		p, err = container.ResolveType(fType.In(i))
+		p, err = container.Default().Resolve(fType.In(i))
 		if err != nil || !p.IsValid() {
 			p := reflect.New(fType.In(i))
 			if len(ctx.Request.URL.Query()) > 0 {

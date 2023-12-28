@@ -2,32 +2,52 @@ package container
 
 import (
 	"reflect"
+	"sync/atomic"
 )
 
-var Default = NewContainer()
+var (
+	def atomic.Value
+)
 
-func Bind[T any](providerOrInstance any, sets ...func(*Stuff)) {
-	Default.Bind(reflect.TypeOf((*T)(nil)).Elem(), providerOrInstance, sets...)
+func init() {
+	Set(NewContainer())
 }
 
-func Register(providerOrInstance any, sets ...func(*Stuff)) {
-	Default.Register(NewStuff(providerOrInstance, sets...))
+func Set(container *Container) {
+	def.Store(container)
 }
 
-func Resolve[T any](key ...string) (result T, err error) {
-	tmp := new(T)
-	res, err := Default.Resolve(reflect.ValueOf(tmp).Elem().Type(), key...)
+func Default() *Container {
+	return def.Load().(*Container)
+}
+
+func Bind[T any](providerOrInstance any, sets ...func(*bindOpts)) (err error) {
+	return Default().Bind(reflect.TypeOf((*T)(nil)).Elem(), reflect.ValueOf(providerOrInstance), sets...)
+}
+
+func Resolve[T any]() (result T, err error) {
+	res, err := Default().Resolve(reflect.TypeOf((*T)(nil)).Elem())
 	if err != nil {
 		return
 	}
-	result = res.(T)
+	result = res.Interface().(T)
 	return
 }
 
-func ResolveType(t reflect.Type, key ...string) (reflect.Value, error) {
-	return Default.resolveValue(t, key...)
+type invokeOpts struct {
+	params map[int]any
 }
 
-func Invoke(f any) (results []reflect.Value, err error) {
-	return Default.Invoke(f)
+func Invoke(f any, opts ...func(*invokeOpts)) (err error) {
+	results, err := Default().Invoke(reflect.ValueOf(f), opts...)
+	if err != nil {
+		return
+	}
+	if len(results) > 0 {
+		e := results[len(results)-1].Interface()
+		if e != nil {
+			err = e.(error)
+		}
+	}
+	return
 }

@@ -2,9 +2,10 @@ package wgorm
 
 import (
 	"database/sql"
+	"sync"
+
 	"github.com/timandy/routine"
 	"gorm.io/gorm"
-	"sync"
 )
 
 func WithIsolation(level sql.IsolationLevel) func(*sql.TxOptions) {
@@ -69,7 +70,6 @@ func (d *DBHolder) Rollback() {
 
 func (d *DBHolder) put(db *gorm.DB) {
 	d.txs[routine.Goid()] = db
-	return
 }
 
 func (d *DBHolder) pull() *gorm.DB {

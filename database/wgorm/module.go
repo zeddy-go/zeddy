@@ -15,20 +15,20 @@ func NewModule() *Module {
 		BaseModule: module.NewBaseModule("wgorm"),
 	}
 
-	container.Register(func(c *viper.Viper) (db *gorm.DB) {
+	container.Bind[*gorm.DB](func(c *viper.Viper) (db *gorm.DB) {
 		dsn := database.DSN(c.GetString("database.dsn"))
 		db, err := gorm.Open(mysql.Open(dsn.RemoveSchema()))
 		if err != nil {
 			panic(err)
 		}
 		return
-	}, container.WithSingleton())
+	}, container.AsSingleton())
 
-	container.Register(NewDBHolder, container.WithSingleton())
+	container.Bind[*DBHolder](NewDBHolder, container.AsSingleton())
 
-	container.Register(func() *sonyflake.Sonyflake {
+	container.Bind[*sonyflake.Sonyflake](func() *sonyflake.Sonyflake {
 		return sonyflake.NewSonyflake(sonyflake.Settings{})
-	}, container.WithSingleton())
+	}, container.AsSingleton())
 
 	return m
 }
