@@ -190,6 +190,10 @@ func WithParams(params map[int]any) func(*invokeOpts) {
 	}
 }
 
+type invokeOpts struct {
+	params map[int]any
+}
+
 func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
 	options := &invokeOpts{}
 	for _, opt := range opts {
