@@ -17,7 +17,7 @@ type IHasSubModule interface {
 }
 
 type IShouldBoot interface {
-	Boot()
+	Boot() error
 }
 
 type IModule interface {
