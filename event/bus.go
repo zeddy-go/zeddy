@@ -9,9 +9,9 @@ import (
 )
 
 type Bus struct {
-	lock      sync.RWMutex
-	subs      map[reflect.Type][]any
-	container *container.Container
+	lock         sync.RWMutex
+	subs         map[reflect.Type][]any
+	useContainer bool
 }
 
 // Sub 订阅事件, f必须是函数, f的第一个参数必须是事件
@@ -24,11 +24,10 @@ func (h *Bus) Sub(f any) {
 		panic(errors.New("func only"))
 	}
 
-	//TODO: 重构,感觉可以优化
-	if h.container == nil && vFunc.Type().NumIn() != 1 {
-		panic(errors.New("event handler require must one param in normal mode"))
-	} else if h.container != nil && vFunc.Type().NumIn() < 1 {
-		panic(errors.New("event handler require at least one param in container mode"))
+	if !h.useContainer && vFunc.Type().NumIn() != 1 {
+		panic(errors.New("event handler require must one param as event in normal mode"))
+	} else if h.useContainer && vFunc.Type().NumIn() < 1 {
+		panic(errors.New("event handler require at least one param as event in container mode"))
 	}
 
 	eventType := vFunc.Type().In(0)
@@ -49,8 +48,8 @@ func (h *Bus) Pub(event any) {
 	if group, ok := h.subs[eventValue.Type()]; ok {
 		for _, item := range group {
 			go func(f any) {
-				if h.container != nil {
-					h.container.Invoke(reflect.ValueOf(f), container.WithParams(map[int]any{0: event}))
+				if h.useContainer {
+					container.Invoke(f, container.WithParams(map[int]any{0: event}))
 				} else {
 					reflect.ValueOf(f).Call([]reflect.Value{eventValue})
 				}
