@@ -38,7 +38,7 @@ func Boot() (err error) {
 
 func Start() (n int) {
 	for _, m := range moduleList {
-		if module, ok := m.(contract.Startable); ok {
+		if module, ok := m.(contract.IStartable); ok {
 			go module.Start()
 			n++
 		}
@@ -49,7 +49,7 @@ func Start() (n int) {
 
 func Stop() {
 	for _, m := range moduleList {
-		if module, ok := m.(contract.Stopable); ok {
+		if module, ok := m.(contract.IStopable); ok {
 			go module.Stop()
 		}
 	}
@@ -64,7 +64,7 @@ func StartAndWait() (err error) {
 	n := Start()
 
 	if n == 0 {
-		slog.Info("nothing started")
+		slog.Info("nothing started, shutdown.")
 	} else {
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
