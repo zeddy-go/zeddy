@@ -1,6 +1,7 @@
 package ginx
 
 import (
+	"log/slog"
 	"net/http"
 	"reflect"
 
@@ -45,8 +46,6 @@ func NewModule(sets ...func(*Module)) *Module {
 		m.router = gin.Default()
 	}
 
-	container.Bind[contract.IRouter](m)
-
 	return m
 }
 
@@ -72,12 +71,13 @@ func (m *Module) Register(subs ...contract.IModule) {
 	}
 }
 
-func (m *Module) Boot() {
-	for _, sub := range m.subModules {
-		if x, ok := sub.(contract.IShouldBoot); ok {
-			x.Boot()
-		}
+func (m *Module) Init() (err error) {
+	err = container.Bind[contract.IRouter](m, container.AsSingleton())
+	if err != nil {
+		return
 	}
+
+	return
 }
 
 func (m *Module) Any(route string, handler any, middlewares ...any) contract.IRouter {
@@ -140,15 +140,19 @@ func (m *Module) wrap(handler any, middlewares ...any) (handlers []gin.HandlerFu
 	return
 }
 
-func (m *Module) Serve() error {
+func (m *Module) Start() {
 	svr := http.Server{
 		Addr:    m.addr,
 		Handler: m.router.(http.Handler),
 	}
 
+	var err error
 	if m.lts {
-		return svr.ListenAndServeTLS(m.certFile, m.keyFile)
+		err = svr.ListenAndServeTLS(m.certFile, m.keyFile)
 	} else {
-		return svr.ListenAndServe()
+		err = svr.ListenAndServe()
+	}
+	if err != nil {
+		slog.Info("server shutdown", "error", err)
 	}
 }

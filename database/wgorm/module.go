@@ -14,8 +14,15 @@ func NewModule() *Module {
 	m := &Module{
 		BaseModule: module.NewBaseModule("wgorm"),
 	}
+	return m
+}
 
-	container.Bind[*gorm.DB](func(c *viper.Viper) (db *gorm.DB) {
+type Module struct {
+	*module.BaseModule
+}
+
+func (m *Module) Init() (err error) {
+	err = container.Bind[*gorm.DB](func(c *viper.Viper) (db *gorm.DB) {
 		dsn := database.DSN(c.GetString("database.dsn"))
 		db, err := gorm.Open(mysql.Open(dsn.RemoveSchema()))
 		if err != nil {
@@ -23,16 +30,21 @@ func NewModule() *Module {
 		}
 		return
 	}, container.AsSingleton())
+	if err != nil {
+		return
+	}
 
-	container.Bind[*DBHolder](NewDBHolder, container.AsSingleton())
+	err = container.Bind[*DBHolder](NewDBHolder, container.AsSingleton())
+	if err != nil {
+		return
+	}
 
-	container.Bind[*sonyflake.Sonyflake](func() *sonyflake.Sonyflake {
+	err = container.Bind[*sonyflake.Sonyflake](func() *sonyflake.Sonyflake {
 		return sonyflake.NewSonyflake(sonyflake.Settings{})
 	}, container.AsSingleton())
+	if err != nil {
+		return
+	}
 
-	return m
-}
-
-type Module struct {
-	*module.BaseModule
+	return
 }

@@ -2,6 +2,7 @@ package container
 
 import (
 	"errors"
+	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
 )
 
@@ -39,18 +40,18 @@ func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bind
 		opt(options)
 	}
 
-	if t == value.Type() {
+	if t == value.Type() || (t.Kind() == reflect.Interface && value.Type().Implements(t)) {
 		c.bindConsistent(t, value, options)
 	} else {
-		err = c.bindNotConsistent(t, value, options)
+		err = c.bindProvider(t, value, options)
 	}
 
 	return
 }
 
-func (c *Container) bindNotConsistent(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
+func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
 	if value.Kind() != reflect.Func {
-		err = ErrCanNotBind
+		err = errx.Wrap(ErrCanNotBind, "value is not a func")
 		return
 	}
 
@@ -78,23 +79,23 @@ func (c *Container) bindNotConsistent(t reflect.Type, value reflect.Value, optio
 	return
 }
 
-func (c *Container) isConsistent(dest reflect.Type, src reflect.Type) (canBind bool, shouldConvert bool) {
+func (c *Container) isConsistent(dest reflect.Type, src reflect.Type) (consistent bool, shouldConvert bool) {
 	//一致性检查:
 	// 1. 如果t是接口, 检查给定的**provider返回值或者实例**的类型是否实现了这个接口
 	// 2. 如果t是普通类型, 检查给定的**provider返回值或者实例**的类型是否等于或者可以转换成t
 	// 3. 判断按执行速度排序
 	if dest == src {
-		canBind = true
+		consistent = true
 		return
 	}
 
 	if dest.Kind() == reflect.Interface && src.Implements(dest) {
-		canBind = true
+		consistent = true
 		return
 	}
 
 	if src.ConvertibleTo(dest) {
-		canBind = true
+		consistent = true
 		shouldConvert = true
 		return
 	}
@@ -111,23 +112,23 @@ func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options 
 	}
 
 	//如果要绑定的类型不是函数, 就要判断是否为singleton, 来做合适的绑定
-	if options.Singleton && t.Kind() == reflect.Pointer {
+	if options.Singleton && value.Kind() == reflect.Pointer {
 		c.instances[t] = value
 		return
 	}
 
-	if options.Singleton && t.Kind() != reflect.Pointer {
+	if options.Singleton && value.Kind() != reflect.Pointer {
 		c.instances[t] = value.Addr()
 		return
 	}
 
-	if t.Kind() == reflect.Pointer {
+	if value.Kind() == reflect.Pointer {
 		c.providers[t] = reflect.ValueOf(func() any {
-			return reflect.New(t.Elem()).Interface()
+			return reflect.New(value.Type().Elem()).Interface()
 		})
 	} else {
 		c.providers[t] = reflect.ValueOf(func() any {
-			return reflect.New(t).Elem().Interface()
+			return reflect.New(value.Type()).Elem().Interface()
 		})
 	}
 }
@@ -169,7 +170,16 @@ func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (
 		}
 	}
 
+	if results[0].IsNil() {
+		err = ErrNotFound
+		return
+	}
+
 	result = results[0]
+
+	if result.Kind() == reflect.Interface {
+		result = result.Elem()
+	}
 
 	consistent, shouldConvert := c.isConsistent(resultType, result.Type())
 	if !consistent {

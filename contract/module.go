@@ -23,3 +23,7 @@ type IShouldBoot interface {
 type IModule interface {
 	Name() string
 }
+
+type IShouldInit interface {
+	Init() error
+}
