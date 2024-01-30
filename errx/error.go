@@ -18,6 +18,9 @@ func New(msg string, sets ...func(map[DetailKey]any)) error {
 }
 
 func Wrap(err error, msg string, sets ...func(map[DetailKey]any)) error {
+	if err == nil {
+		return nil
+	}
 	return WrapWithSkip(err, msg, 1, sets...)
 }
 
