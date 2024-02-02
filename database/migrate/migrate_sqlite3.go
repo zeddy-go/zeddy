@@ -1,10 +1,10 @@
-//go:build !sqlite3
+//go:build sqlite3
 
 package migrate
 
 import (
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/mysql"
+	_ "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	"github.com/golang-migrate/migrate/v4/source"
 )
 
