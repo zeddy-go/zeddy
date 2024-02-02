@@ -1,4 +1,4 @@
-//go:build !sqlite
+//go:build sqlite
 
 package wgorm
 
@@ -8,7 +8,7 @@ import (
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/module"
-	"gorm.io/driver/mysql"
+	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"log"
@@ -30,7 +30,7 @@ type Module struct {
 func (m *Module) Init() (err error) {
 	err = container.Bind[*gorm.DB](func(c *viper.Viper) (db *gorm.DB) {
 		dsn := database.DSN(c.GetString("database.dsn"))
-		db, err := gorm.Open(mysql.Open(dsn.RemoveSchema()), &gorm.Config{
+		db, err := gorm.Open(sqlite.Open(dsn.RemoveSchema()), &gorm.Config{
 			Logger: logger.New(log.New(os.Stdout, "\r\n", log.LstdFlags), logger.Config{
 				SlowThreshold:             200 * time.Millisecond,
 				LogLevel:                  logger.Warn,
