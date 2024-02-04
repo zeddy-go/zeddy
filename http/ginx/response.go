@@ -5,8 +5,61 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/zeddy-go/zeddy/errx"
 	"gorm.io/gorm"
+	"log/slog"
 	"net/http"
 )
+
+func WithFileName(name string) func(*File) {
+	return func(file *File) {
+		file.name = name
+	}
+}
+
+func WithMimeType(mimeType string) func(*File) {
+	return func(file *File) {
+		file.mimeType = mimeType
+	}
+}
+
+func NewFile(content []byte, opts ...func(*File)) *File {
+	f := &File{
+		content: content,
+	}
+
+	for _, opt := range opts {
+		opt(f)
+	}
+
+	if f.mimeType == "" {
+		f.mimeType = http.DetectContentType(content)
+	}
+
+	return f
+}
+
+type File struct {
+	name     string
+	mimeType string
+	content  []byte
+}
+
+func (f *File) Name() string {
+	return f.name
+}
+
+func (f *File) MimeType() string {
+	return f.mimeType
+}
+
+func (f *File) Content() []byte {
+	return f.content
+}
+
+type IFile interface {
+	Name() string
+	MimeType() string
+	Content() []byte
+}
 
 type IMeta interface {
 	GetMeta() any
@@ -84,11 +137,23 @@ func Success(c *gin.Context, data any, status int) {
 		}
 	}
 
-	response = &Response{
-		Data: data,
-	}
+	if x, ok := data.(IFile); ok {
+		c.Status(http.StatusOK)
+		c.Header("Content-Type", x.MimeType())
+		if name := x.Name(); name != "" {
+			c.Header("Content-Disposition", "attachment;filename="+name)
+		}
+		_, err := c.Writer.Write(x.Content())
+		if err != nil {
+			slog.Error("write file error", err)
+		}
+	} else {
+		response = &Response{
+			Data: data,
+		}
 
-	Json(c, response, code, false)
+		Json(c, response, code, false)
+	}
 }
 
 func Pagination(c *gin.Context, data interface{}, total int) {
