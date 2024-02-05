@@ -16,7 +16,7 @@ type IDBHolder[DB any] interface {
 type IRepository[Entity any, DB any] interface {
 	IDBHolder[DB]
 	Create(*Entity) error
-	Update(any) error
+	Update(structOrMap any, conditions ...Condition) error
 	First(conditions ...Condition) (Entity, error)
 	List(conditions ...Condition) ([]Entity, error)
 	Delete(conditions ...Condition) error

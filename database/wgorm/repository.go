@@ -26,7 +26,7 @@ func (r *Repository[PO, Entity]) Create(entity *Entity) (err error) {
 }
 
 // Update struct or map
-func (r *Repository[PO, Entity]) Update(entity any) (err error) {
+func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condition) (err error) {
 	switch entity.(type) {
 	case *Entity:
 		po := new(PO)
@@ -37,7 +37,14 @@ func (r *Repository[PO, Entity]) Update(entity any) (err error) {
 		}
 		mapper.MustSimpleMap(entity, po)
 	case map[string]any:
-		err = r.GetDB().Updates(entity).Error
+		query := r.GetDB()
+		if len(conditions) > 0 {
+			query, err = applyConditions(query, conditions)
+			if err != nil {
+				return
+			}
+		}
+		err = query.Updates(entity).Error
 	default:
 		err = errors.New("only supported struct or map")
 	}
