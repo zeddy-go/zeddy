@@ -31,7 +31,7 @@ func (r *Repository[PO, Entity]) Update(entity any) (err error) {
 	case *Entity:
 		po := new(PO)
 		mapper.MustSimpleMap(po, entity)
-		err = r.GetDB().Select("*").Updates(po).Error
+		err = r.GetDB().Updates(po).Error
 		if err != nil {
 			return
 		}
