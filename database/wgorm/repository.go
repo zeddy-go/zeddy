@@ -11,17 +11,22 @@ type Repository[PO any, Entity any] struct {
 	database.IDBHolder[*gorm.DB]
 }
 
-func (r *Repository[PO, Entity]) Create(entity *Entity) (err error) {
-	po := new(PO)
-	mapper.MustSimpleMap(po, entity)
+func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
+	pos := make([]*PO, 0, len(entities))
+	for _, item := range entities {
+		po := new(PO)
+		mapper.MustSimpleMap(po, item)
+		pos = append(pos, po)
+	}
+
+	err = r.GetDB().Create(&pos).Error
 	if err != nil {
 		return
 	}
-	err = r.GetDB().Create(po).Error
-	if err != nil {
-		return
+
+	for index, item := range pos {
+		mapper.MustSimpleMap(entities[index], item)
 	}
-	mapper.MustSimpleMap(entity, po)
 	return
 }
 
@@ -44,7 +49,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 				return
 			}
 		}
-		err = query.Updates(entity).Error
+		err = query.Model(new(PO)).Updates(entity).Error
 	default:
 		err = errors.New("only supported struct or map")
 	}
