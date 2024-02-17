@@ -4,9 +4,9 @@ import "database/sql"
 
 type ITransaction interface {
 	Begin(sets ...func(*sql.TxOptions))
-	Commit()
-	Rollback()
-	Transation(f func() error) (err error)
+	Commit() error
+	Rollback() error
+	Transaction(f func() error) error
 }
 
 type IDBHolder[DB any] interface {

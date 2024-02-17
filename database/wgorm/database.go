@@ -33,13 +33,13 @@ type DBHolder struct {
 	lock sync.Mutex
 }
 
-func (d *DBHolder) Transation(f func() error) (err error) {
+func (d *DBHolder) Transaction(f func() error) (err error) {
 	d.Begin()
 	err = f()
 	if err != nil {
 		d.Rollback()
 	} else {
-		d.Commit()
+		err = d.Commit()
 	}
 
 	return
@@ -49,7 +49,7 @@ func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	db := d.pull()
+	db := d.get()
 	if db == nil {
 		db = d.root.Session(&gorm.Session{
 			SkipDefaultTransaction: true,
@@ -64,28 +64,33 @@ func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
 	}
 }
 
-func (d *DBHolder) Commit() {
+func (d *DBHolder) Commit() error {
 	d.lock.Lock()
-	defer d.lock.Unlock()
+	defer func() {
+		delete(d.txs, routine.Goid())
+		d.lock.Unlock()
+	}()
 
-	w := d.pull()
-	w.Commit()
+	w := d.get()
+	return w.Commit().Error
 }
 
-func (d *DBHolder) Rollback() {
+func (d *DBHolder) Rollback() error {
 	d.lock.Lock()
-	defer d.lock.Unlock()
+	defer func() {
+		delete(d.txs, routine.Goid())
+		d.lock.Unlock()
+	}()
 
-	w := d.pull()
-	w.Rollback()
+	w := d.get()
+	return w.Rollback().Error
 }
 
 func (d *DBHolder) put(db *gorm.DB) {
 	d.txs[routine.Goid()] = db
 }
 
-func (d *DBHolder) pull() *gorm.DB {
-	defer delete(d.txs, routine.Goid())
+func (d *DBHolder) get() *gorm.DB {
 	return d.txs[routine.Goid()]
 }
 
@@ -93,7 +98,7 @@ func (d *DBHolder) GetDB() (db *gorm.DB) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
-	db = d.pull()
+	db = d.get()
 	if db == nil {
 		db = d.root.Session(&gorm.Session{SkipDefaultTransaction: true, Logger: d.root.Logger})
 	}
