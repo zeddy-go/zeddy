@@ -33,6 +33,18 @@ type DBHolder struct {
 	lock sync.Mutex
 }
 
+func (d *DBHolder) Transation(f func() error) (err error) {
+	d.Begin()
+	err = f()
+	if err != nil {
+		d.Rollback()
+	} else {
+		d.Commit()
+	}
+
+	return
+}
+
 func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
 	d.lock.Lock()
 	defer d.lock.Unlock()

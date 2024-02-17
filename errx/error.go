@@ -13,6 +13,18 @@ func WithCode(code int) func(map[DetailKey]any) {
 	}
 }
 
+func WithDetailMap(d map[string]any) func(map[DetailKey]any) {
+	return func(m map[DetailKey]any) {
+		m[Detail] = d
+	}
+}
+
+func WithDetailSlice(d []any) func(map[DetailKey]any) {
+	return func(m map[DetailKey]any) {
+		m[Detail] = d
+	}
+}
+
 func New(msg string, sets ...func(map[DetailKey]any)) error {
 	return NewWithSkip(msg, 1, sets...)
 }
