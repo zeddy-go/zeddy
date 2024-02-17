@@ -6,6 +6,7 @@ type ITransaction interface {
 	Begin(sets ...func(*sql.TxOptions))
 	Commit()
 	Rollback()
+	Transation(f func() error) (err error)
 }
 
 type IDBHolder[DB any] interface {
