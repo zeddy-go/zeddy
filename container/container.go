@@ -2,6 +2,7 @@ package container
 
 import (
 	"errors"
+	"fmt"
 	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
 )
@@ -12,15 +13,20 @@ var (
 	ErrTypeNotMatch = errors.New("type not match")
 )
 
+type provider struct {
+	Value     reflect.Value
+	Singleton bool
+}
+
 func NewContainer() *Container {
 	return &Container{
-		providers: make(map[reflect.Type]reflect.Value),
+		providers: make(map[reflect.Type]*provider),
 		instances: make(map[reflect.Type]reflect.Value),
 	}
 }
 
 type Container struct {
-	providers map[reflect.Type]reflect.Value
+	providers map[reflect.Type]*provider
 	instances map[reflect.Type]reflect.Value
 }
 
@@ -55,26 +61,30 @@ func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *b
 		return
 	}
 
-	bindable, shouldConvert := c.isConsistent(t, value.Type().Out(0))
+	bindable, _ := c.isConsistent(t, value.Type().Out(0))
 	if !bindable {
 		err = ErrCanNotBind
 		return
 	}
 
-	if options.Singleton {
-		var result reflect.Value
-		result, err = c.invokeAndGetType(value, t)
-		if err != nil {
-			return
-		}
-		if shouldConvert {
-			c.instances[t] = reflect.ValueOf(result).Convert(t)
-		} else {
-			c.instances[t] = result
-		}
-	} else {
-		c.providers[t] = value
+	c.providers[t] = &provider{
+		Value:     value,
+		Singleton: options.Singleton,
 	}
+	//if options.Singleton {
+	//	var result reflect.Value
+	//	result, err = c.invokeAndGetType(value, t)
+	//	if err != nil {
+	//		return
+	//	}
+	//	if shouldConvert {
+	//		c.instances[t] = reflect.ValueOf(result).Convert(t)
+	//	} else {
+	//		c.instances[t] = result
+	//	}
+	//} else {
+	//	c.providers[t] = value
+	//}
 
 	return
 }
@@ -123,13 +133,17 @@ func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options 
 	}
 
 	if value.Kind() == reflect.Pointer {
-		c.providers[t] = reflect.ValueOf(func() any {
-			return reflect.New(value.Type().Elem()).Interface()
-		})
+		c.providers[t] = &provider{
+			Value: reflect.ValueOf(func() any {
+				return reflect.New(value.Type().Elem()).Interface()
+			}),
+		}
 	} else {
-		c.providers[t] = reflect.ValueOf(func() any {
-			return reflect.New(value.Type()).Elem().Interface()
-		})
+		c.providers[t] = &provider{
+			Value: reflect.ValueOf(func() any {
+				return reflect.New(value.Type()).Elem().Interface()
+			}),
+		}
 	}
 }
 
@@ -141,14 +155,22 @@ func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
 
 	f, ok := c.providers[t]
 	if ok {
-		result, err = c.invokeAndGetType(f, t)
+		result, err = c.invokeAndGetType(f.Value, t)
 		if err != nil {
 			return
+		}
+		if f.Singleton {
+			_, shouldConvert := c.isConsistent(t, f.Value.Type().Out(0))
+			if shouldConvert {
+				c.instances[t] = reflect.ValueOf(result).Convert(t)
+			} else {
+				c.instances[t] = result
+			}
 		}
 		return
 	}
 
-	err = ErrNotFound
+	err = errx.Wrap(ErrNotFound, fmt.Sprintf("type <%s>", t.String()))
 	return
 }
 
