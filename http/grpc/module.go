@@ -12,12 +12,16 @@ import (
 	"net"
 )
 
-func NewModule() contract.IModule {
-	return &Module{}
+func NewModule(prefix string) contract.IModule {
+	return &Module{
+		prefix: prefix,
+	}
 }
 
 type Module struct {
 	grpcServer *grpc.Server
+	prefix     string
+	c          *viper.Viper
 }
 
 func (m *Module) Name() string {
@@ -25,15 +29,21 @@ func (m *Module) Name() string {
 }
 
 func (m *Module) Init() (err error) {
+	m.c, err = container.Resolve[*viper.Viper]()
+	if err != nil {
+		return
+	}
+	if m.prefix != "" {
+		m.c = m.c.Sub(m.prefix)
+	}
+
 	m.grpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(simpleInterceptor),
 	)
 
-	container.Invoke(func(c *viper.Viper) {
-		if c.GetBool("grpc.reflection") {
-			reflection.Register(m.grpcServer)
-		}
-	})
+	if m.c.GetBool("reflection") {
+		reflection.Register(m.grpcServer)
+	}
 
 	err = container.Bind[*grpc.Server](m.grpcServer, container.AsSingleton())
 	if err != nil {
@@ -45,13 +55,7 @@ func (m *Module) Init() (err error) {
 
 func (m *Module) Start() {
 	var lis net.Listener
-	err := container.Invoke(func(c *viper.Viper) (err error) {
-		lis, err = net.Listen("tcp", fmt.Sprintf(":%d", c.GetInt("grpc.port")))
-		if err != nil {
-			return
-		}
-		return
-	})
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", m.c.GetInt("port")))
 	if err != nil {
 		panic(errx.Wrap(err, "tcp listen port failed"))
 	}

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/contract"
 	"log/slog"
 	"os"
@@ -9,6 +10,13 @@ import (
 )
 
 var moduleList = make([]contract.IModule, 0)
+
+var beforeWaits = make([]any, 0)
+
+// BeforeWaits 等待钩子
+func BeforeWaits(funcs ...any) {
+	beforeWaits = append(beforeWaits, funcs...)
+}
 
 func Use(modules ...contract.IModule) {
 	moduleList = append(moduleList, modules...)
@@ -62,18 +70,25 @@ func StartAndWait() (err error) {
 	}
 
 	n := Start()
+	defer Stop()
 
 	if n == 0 {
 		slog.Info("nothing started, shutdown.")
 	} else {
+		if len(beforeWaits) > 0 {
+			for _, f := range beforeWaits {
+				err = container.Invoke(f)
+				if err != nil {
+					return
+				}
+			}
+		}
 		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT)
+		signal.Notify(signals, syscall.SIGTERM, syscall.SIGINT, syscall.SIGKILL)
 
 		for range signals {
 			signal.Stop(signals)
 			close(signals)
-
-			Stop()
 		}
 
 		println("bye bye~")

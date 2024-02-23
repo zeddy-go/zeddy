@@ -5,6 +5,7 @@ import (
 	"github.com/bufbuild/protovalidate-go"
 	"github.com/zeddy-go/zeddy/errx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -17,7 +18,7 @@ func simpleInterceptor(ctx context.Context, req interface{}, info *grpc.UnarySer
 			return
 		}
 		if err = v.Validate(req.(proto.Message)); err != nil {
-			err = errx.Wrap(err, "validate failed")
+			err = errx.Wrap(err, "validate failed", errx.WithCode(int(codes.InvalidArgument)))
 			return
 		}
 	}
