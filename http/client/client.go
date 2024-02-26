@@ -1,42 +1,26 @@
 package client
 
 import (
-	"bytes"
-	"encoding/json"
-	"encoding/xml"
-	"errors"
 	"fmt"
-	"github.com/zeddy-go/zeddy/mapx"
-	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
-	"reflect"
 	"strings"
-	"time"
-
-	"github.com/gogf/gf/v2/util/gconv"
 )
 
-type OptFunc func(*Client)
-
-func WithBaseUrl(baseUrl string) OptFunc {
+func WithBaseUrl(baseUrl string) func(*Client) {
 	return func(client *Client) {
-		client.BaseUrl = baseUrl
+		client.baseUrl = baseUrl
 	}
 }
 
-func WithTimeout(d time.Duration) OptFunc {
-	return func(c *Client) {
-		c.timeout = d
-	}
-}
-
-func NewClient(opts ...OptFunc) *Client {
+func NewClient(opts ...func(*Client)) *Client {
 	c := &Client{
-		header:  make(http.Header),
-		query:   make(url.Values),
 		cookies: make([]*http.Cookie, 0),
+		headers: make(http.Header),
+		queries: make(url.Values),
 	}
+
 	for _, opt := range opts {
 		opt(c)
 	}
@@ -45,309 +29,228 @@ func NewClient(opts ...OptFunc) *Client {
 }
 
 type Client struct {
-	BaseUrl string
-	debug   bool
-	header  http.Header
-	timeout time.Duration
-	query   url.Values
 	cookies []*http.Cookie
-	clone   bool
+	headers http.Header
+	clone   int
+	queries url.Values
+	debug   bool
+	baseUrl string
+}
+
+func (c *Client) BaseUrl(baseUrl string) (client *Client) {
+	client = c.Clone()
+	client.baseUrl = strings.TrimRight(baseUrl, "/")
+	return
+}
+
+func (c *Client) Debug() (client *Client) {
+	client = c.Clone()
+	client.debug = true
+	return
+}
+
+func (c *Client) AddCookies(cookies ...*http.Cookie) (client *Client) {
+	client = c.Clone()
+	client.cookies = append(client.cookies, cookies...)
+	return
+}
+
+func (c *Client) SetHeaders(header map[string][]string) (client *Client) {
+	client = c.Clone()
+	client.headers = header
+	return
+}
+
+func (c *Client) AddHeader(key string, values ...string) (client *Client) {
+	client = c.Clone()
+	for _, value := range values {
+		client.headers.Add(key, value)
+	}
+
+	return
+}
+
+func (c *Client) SetHeader(key string, values ...string) (client *Client) {
+	client = c.Clone()
+	for idx, value := range values {
+		if idx == 0 {
+			client.headers.Set(key, value)
+		} else {
+			client.headers.Add(key, value)
+		}
+	}
+
+	return
+}
+
+func (c *Client) SetQueries(queries map[string][]string) (client *Client) {
+	client = c.Clone()
+	client.queries = queries
+	return
+}
+
+func (c *Client) AddQuery(key string, values ...string) (client *Client) {
+	client = c.Clone()
+	for _, value := range values {
+		client.queries.Add(key, value)
+	}
+
+	return
+}
+
+func (c *Client) SetQuery(key string, values ...string) (client *Client) {
+	client = c.Clone()
+	for idx, value := range values {
+		if idx == 0 {
+			client.queries.Set(key, value)
+		} else {
+			client.queries.Add(key, value)
+		}
+	}
+
+	return
 }
 
 func (c *Client) Clone() *Client {
-	if c.clone {
-		return c
-	} else {
+	switch c.clone {
+	case 0:
 		return &Client{
-			BaseUrl: c.BaseUrl,
+			cookies: c.cookies,
+			headers: c.headers,
+			clone:   1,
+			queries: c.queries,
 			debug:   c.debug,
-			timeout: c.timeout,
-			header:  c.header.Clone(),
-			query:   mapx.CloneSimpleMapSlice(c.query),
-			cookies: cloneCookies(c.cookies),
-			clone:   true,
+			baseUrl: c.baseUrl,
 		}
+	case 1:
+		return c
+	default:
+		return c
 	}
 }
 
-func (c *Client) SetHeader(header http.Header) *Client {
-	newClient := c.Clone()
-	newClient.header = header
-	return newClient
+func (c *Client) Clean() {
+	c.cookies = make([]*http.Cookie, 0)
+	c.headers = make(http.Header)
 }
 
-func (c *Client) AddHeader(key string, value string) *Client {
-	newClient := c.Clone()
-	newClient.header.Add(key, value)
-	return newClient
+func (c *Client) makeRequest(method string, url string, body any) (req *Request, err error) {
+	return NewRequest(method, url, body, c.cookies, c.headers)
 }
 
-func (c *Client) Debug() *Client {
-	c.debug = true
-	return c
-}
-
-func (c *Client) SetTimeout(d time.Duration) *Client {
-	newClient := c.Clone()
-	newClient.timeout = d
-	return newClient
-}
-
-func (c *Client) SetQuery(values url.Values) *Client {
-	newClient := c.Clone()
-	newClient.query = values
-	return newClient
-}
-
-func (c *Client) AddQuery(key string, value string) *Client {
-	newClient := c.Clone()
-	newClient.query.Add(key, value)
-	return newClient
-}
-
-func (c *Client) SetCookies(cookies []*http.Cookie) *Client {
-	newClient := c.Clone()
-	newClient.cookies = cookies
-	return newClient
-}
-
-func (c *Client) AddCookie(cookie *http.Cookie) *Client {
-	newClient := c.Clone()
-	newClient.cookies = append(c.cookies, cookie)
-	return newClient
-}
-
-func (c *Client) Get(url string) (*Response, error) {
-	return c.get(url)
-}
-
-func (c *Client) get(url string) (*Response, error) {
-	return c.Request(c.makeRequest(http.MethodGet, url, nil))
-}
-
-func (c *Client) Delete(url string) (*Response, error) {
-	return c.delete(url)
-}
-
-func (c *Client) delete(url string) (*Response, error) {
-	return c.Request(c.makeRequest(http.MethodDelete, url, nil))
-}
-
-func (c *Client) PutJson(url string, data any) (resp *Response, err error) {
-	content, err := json.Marshal(data)
+func (c *Client) Do(request *Request) (resp *Response, err error) {
+	response, err := http.DefaultClient.Do(request.Request)
 	if err != nil {
 		return
 	}
-	c.header.Set("Content-Type", "application/json")
-	return c.put(url, bytes.NewReader(content))
+	resp = NewResponse(response)
+	return
 }
 
-func (c *Client) PutXml(url string, data any) (resp *Response, err error) {
-	content, err := xml.Marshal(data)
-	if err != nil {
-		return
+func (c *Client) buildUrl(uri string) (u string, err error) {
+	var tmp *url.URL
+	if c.baseUrl != "" {
+		tmp, err = url.Parse(fmt.Sprintf("%s/%s", c.baseUrl, strings.TrimLeft(uri, "/")))
+	} else {
+		tmp, err = url.Parse(uri)
 	}
-	c.header.Set("Content-Type", "text/xml")
-	return c.put(url, bytes.NewReader(content))
-}
-
-func (c *Client) put(url string, body io.Reader) (*Response, error) {
-	return c.Request(c.makeRequest(http.MethodPut, url, body))
-}
-
-func (c *Client) PostJson(url string, data any) (resp *Response, err error) {
-	content, err := json.Marshal(data)
 	if err != nil {
 		return
 	}
 
-	c.header.Set("Content-Type", "application/json")
-	return c.post(url, bytes.NewReader(content))
+	if len(c.queries) > 0 {
+		tmp.RawQuery = c.queries.Encode()
+	}
+
+	u = tmp.String()
+	return
 }
 
-func (c *Client) PostXml(url string, data any) (resp *Response, err error) {
-	content, err := xml.Marshal(data)
+func (c *Client) PostJson(uri string, body any) (resp *Response, err error) {
+	c.SetHeader("Content-Type", "application/json")
+	return c.Post(uri, body)
+}
+
+func (c *Client) Post(uri string, body any) (resp *Response, err error) {
+	u, err := c.buildUrl(uri)
 	if err != nil {
 		return
 	}
-	c.header.Set("Content-Type", "text/xml")
-	return c.post(url, bytes.NewReader(content))
-}
 
-func (c *Client) PostForm(u string, data any) (resp *Response, err error) {
-	c.header.Set("Content-Type", "application/x-www-form-urlencoded")
-	vData := reflect.ValueOf(data)
-	if vData.Kind() == reflect.Pointer {
-		vData = vData.Elem()
-	}
-	if vData.Kind() == reflect.String {
-		return c.post(u, strings.NewReader(vData.Interface().(string)))
-	}
-
-	if vData.Kind() != reflect.Struct {
-		err = errors.New("unsupported type of data")
+	req, err := c.makeRequest(http.MethodPost, u, body)
+	if err != nil {
 		return
 	}
 
-	tData := reflect.TypeOf(data)
-	if tData.Kind() == reflect.Pointer {
-		tData = tData.Elem()
-	}
+	resp, err = c.Do(req)
 
-	values := url.Values{}
-	for i := 0; i < vData.NumField(); i++ {
-		fieldValue := vData.Field(i)
-		if fieldValue.IsValid() {
-			continue
-		}
-		fieldType := tData.Field(i)
-
-		var (
-			key   string
-			value string
-		)
-		parts := strings.Split(fieldType.Tag.Get("form"), ",")
-		if len(parts) > 0 {
-			key = parts[0]
-		} else {
-			key = fieldType.Name
-		}
-
-		value = gconv.String(fieldValue.Interface())
-
-		values.Add(key, value)
-	}
-
-	return c.post(u, strings.NewReader(values.Encode()))
-}
-
-func (c *Client) post(url string, body io.Reader) (*Response, error) {
-	return c.Request(c.makeRequest(http.MethodPost, url, body))
-}
-
-func (c *Client) buildUrl(u string) string {
-	if !strings.HasPrefix(u, "http") {
-		u = fmt.Sprintf(
-			"%s/%s",
-			strings.TrimRight(c.BaseUrl, "/"),
-			strings.TrimLeft(u, "/"),
-		)
-	}
-
-	parsedUrl, err := url.Parse(u)
-	if err != nil {
-		panic(err)
-	}
-
-	for k, values := range c.query {
-		for _, v := range values {
-			q := parsedUrl.Query()
-			q.Add(k, v)
-			parsedUrl.RawQuery = q.Encode()
-		}
-	}
-
-	return parsedUrl.String()
-}
-
-func (c *Client) makeRequest(method string, url string, body io.Reader) (req *http.Request) {
-	req, err := http.NewRequest(method, c.buildUrl(url), body)
-	if err != nil {
-		panic(err)
-	}
-
-	for _, cookie := range c.cookies {
-		req.AddCookie(cookie)
-	}
-
-	for k, values := range c.header {
-		for _, v := range values {
-			req.Header.Add(k, v)
-		}
+	if c.debug {
+		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
 	}
 
 	return
 }
 
-func (c *Client) Request(req *http.Request) (resp *Response, err error) {
-	httpClient := http.Client{
-		Timeout: c.timeout,
-	}
+func (c *Client) PutJson(uri string, body any) (resp *Response, err error) {
+	c.SetHeader("Content-Type", "application/json")
+	return c.Put(uri, body)
+}
 
-	var (
-		start   time.Time
-		content []byte
-	)
-
-	if c.debug {
-		if req.Body != nil {
-			content, err = io.ReadAll(req.Body)
-			if err != nil {
-				return
-			}
-			req.Body.Close()
-			req.Body = io.NopCloser(bytes.NewReader(content))
-		}
-		start = time.Now()
-	}
-
-	res, err := httpClient.Do(req)
+func (c *Client) Put(uri string, body any) (resp *Response, err error) {
+	u, err := c.buildUrl(uri)
 	if err != nil {
 		return
 	}
 
-	if c.debug {
-		var (
-			respContent []byte
-		)
-		respContent, err = io.ReadAll(res.Body)
-		res.Body.Close()
-		if err != nil {
-			return
-		}
-		res.Body = io.NopCloser(bytes.NewReader(respContent))
-
-		fmt.Printf(
-			"[request: method=%s, url=%s, body=%s, header=%v]\n[request time: %fs]\n[response: body=%s]\n",
-			req.Method,
-			req.URL.String(),
-			string(content),
-			req.Header,
-			time.Since(start).Seconds(),
-			string(respContent),
-		)
+	req, err := c.makeRequest(http.MethodPut, u, body)
+	if err != nil {
+		return
 	}
 
-	resp = &Response{
-		Response: res,
+	resp, err = c.Do(req)
+
+	if c.debug {
+		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
 	}
 
 	return
 }
 
-func cloneCookies(src []*http.Cookie) (dest []*http.Cookie) {
-	if src == nil {
-		return nil
+func (c *Client) Delete(uri string) (resp *Response, err error) {
+	u, err := c.buildUrl(uri)
+	if err != nil {
+		return
 	}
 
-	dest = make([]*http.Cookie, 0, len(src))
-	for _, item := range src {
-		tmp := &http.Cookie{
-			Name:       item.Name,
-			Value:      item.Value,
-			Path:       item.Path,
-			Domain:     item.Domain,
-			Expires:    item.Expires,
-			RawExpires: item.RawExpires,
-			MaxAge:     item.MaxAge,
-			Secure:     item.Secure,
-			HttpOnly:   item.HttpOnly,
-			SameSite:   item.SameSite,
-			Raw:        item.Raw,
-			Unparsed:   make([]string, len(item.Unparsed)),
-		}
-		copy(tmp.Unparsed, item.Unparsed)
-		dest = append(dest, tmp)
+	req, err := c.makeRequest(http.MethodDelete, u, nil)
+	if err != nil {
+		return
+	}
+
+	resp, err = c.Do(req)
+
+	if c.debug {
+		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+	}
+
+	return
+}
+
+func (c *Client) Get(uri string) (resp *Response, err error) {
+	u, err := c.buildUrl(uri)
+	if err != nil {
+		return
+	}
+
+	req, err := c.makeRequest(http.MethodGet, u, nil)
+	if err != nil {
+		return
+	}
+
+	resp, err = c.Do(req)
+
+	if c.debug {
+		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
 	}
 
 	return

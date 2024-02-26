@@ -74,38 +74,32 @@ func NewWithSkip(msg string, skip int, sets ...func(map[DetailKey]any)) error {
 }
 
 func WrapWithSkip(err error, message string, skip int, sets ...func(map[DetailKey]any)) error {
-	e := NewWithSkip(message, skip+1, sets...)
-	tmp := e.(Errx)
-	tmp[Err] = err
+	e := NewWithSkip(message, skip+1, sets...).(Errx)
+	e[Err] = err
 
 	switch x := err.(type) {
-	case *Errx:
-		tmp[ErrStack] = fmt.Sprintf(
-			"%s:%d:%s\n%s",
-			tmp[File],
-			tmp[Line],
-			tmp[Msg],
-			x.ErrStack(),
-		)
 	case Errx:
-		tmp[ErrStack] = fmt.Sprintf(
+		e[ErrStack] = fmt.Sprintf(
 			"%s:%d:%s\n%s",
-			tmp[File],
-			tmp[Line],
-			tmp[Msg],
+			e[File],
+			e[Line],
+			e[Msg],
 			x.ErrStack(),
 		)
+		if code, ok := x[Code]; ok && e[Code] == 0 {
+			e[Code] = code
+		}
 	default:
-		tmp[ErrStack] = fmt.Sprintf(
+		e[ErrStack] = fmt.Sprintf(
 			"%s:%d:%s\n%s",
-			tmp[File],
-			tmp[Line],
-			tmp[Msg],
+			e[File],
+			e[Line],
+			e[Msg],
 			x.(error).Error(),
 		)
 	}
 
-	return tmp
+	return e
 }
 
 type Errx map[DetailKey]any
@@ -114,8 +108,6 @@ func (e Errx) Error() string {
 	msg := e[Msg].(string)
 	if sub, ok := e[Err]; ok {
 		switch x := sub.(type) {
-		case *Errx:
-			msg += ":" + (*x)[Msg].(string)
 		case Errx:
 			msg += ":" + x[Msg].(string)
 		default:

@@ -57,13 +57,13 @@ func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bind
 
 func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
 	if value.Kind() != reflect.Func {
-		err = errx.Wrap(ErrCanNotBind, "value is not a func")
+		err = errx.Wrap(ErrCanNotBind, fmt.Sprintf("value is not a func, type <%s>", t.String()))
 		return
 	}
 
 	bindable, _ := c.isConsistent(t, value.Type().Out(0))
 	if !bindable {
-		err = ErrCanNotBind
+		err = errx.Wrap(ErrCanNotBind, fmt.Sprintf("type <%s>", t.String()))
 		return
 	}
 

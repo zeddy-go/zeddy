@@ -1,36 +1,45 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
-	"encoding/xml"
 	"io"
 	"net/http"
 )
+
+func NewResponse(r *http.Response) *Response {
+	return &Response{
+		Response: r,
+	}
+}
 
 type Response struct {
 	*http.Response
 }
 
-func (r *Response) IsError() bool {
-	return r.Response.StatusCode >= 400
-}
-
-func (r *Response) ScanJsonBody(data any) (err error) {
-	defer r.Response.Body.Close()
-	content, err := io.ReadAll(r.Response.Body)
+func (r *Response) ScanJson(v any) (err error) {
+	defer r.Body.Close()
+	content, err := io.ReadAll(r.Body)
 	if err != nil {
 		return
 	}
-	err = json.Unmarshal(content, data)
-	return
+	return json.Unmarshal(content, v)
 }
 
-func (r *Response) ScanXmlBody(data any) (err error) {
-	defer r.Response.Body.Close()
-	content, err := io.ReadAll(r.Response.Body)
+func (r *Response) Info() (info map[string]any) {
+	info = make(map[string]any)
+
+	body := r.Body
+	defer body.Close()
+
+	content, err := io.ReadAll(body)
 	if err != nil {
-		return
+		panic(err)
 	}
-	err = xml.Unmarshal(content, data)
+
+	info["body"] = string(content)
+
+	r.Body = io.NopCloser(bytes.NewReader(content))
+
 	return
 }

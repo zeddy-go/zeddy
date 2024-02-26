@@ -3,10 +3,10 @@
 
 请求方法:
 - [x] PostJson
-- [ ] PostXml
-- [ ] PostForm
+- [x] PostXml
+- [x] PostForm
 - [x] PutJson
-- [ ] PutXml
+- [x] PutXml
 - [x] Get
 - [x] Delete
 
@@ -28,26 +28,16 @@ var resp struct{
 	Field1 int `json:"field1"`
 }
 //直接用
-client := http.NewClient()
+client := httpx.NewClient()
 
-resp, err := client.PostJson("http://www.baidu.com/some/api", req)
-if err != nil {
-	panic(err)
-}
-defer resp.Close()
-err = resp.ScanJson(&resp)
+err = client.PostJson("http://www.baidu.com/some/api", req).ScanJsonBody(&resp)
 if err != nil {
 	panic(err)
 }
 
 //预先设置base url
-client := http.NewClient(http.WithBaseUrl(baseUrl))
-resp, err = client.PostJson("some/api", req)
-if err != nil {
-	panic(err)
-}
-defer resp.Close()
-err = resp.ScanJson(&resp)
+client := httpx.NewClient(httpx.WithBaseUrl(baseUrl))
+err = client.PostJson("some/api", req).ScanJsonBody(&resp)
 if err != nil {
 	panic(err)
 }
