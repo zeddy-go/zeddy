@@ -2,6 +2,7 @@ package reflectx
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -123,7 +124,7 @@ func ConvertToKind(src reflect.Value, kind reflect.Kind) (result reflect.Value, 
 			r, err = ConvertFloatTo(reflect.ValueOf(x), kind)
 		}
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", src.Kind().String()))
 		return
 	}
 
@@ -178,7 +179,7 @@ func ConvertBoolTo(src reflect.Value, kind reflect.Kind) (result reflect.Value, 
 			result = reflect.ValueOf("false")
 		}
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", kind.String()))
 	}
 
 	return
@@ -216,7 +217,7 @@ func ConvertUintTo(src reflect.Value, kind reflect.Kind) (result reflect.Value, 
 	case reflect.String:
 		result = reflect.ValueOf(strconv.FormatUint(r, 10))
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", kind.String()))
 	}
 
 	return
@@ -254,7 +255,7 @@ func ConvertIntTo(src reflect.Value, kind reflect.Kind) (result reflect.Value, e
 	case reflect.String:
 		result = reflect.ValueOf(strconv.FormatInt(r, 10))
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", kind.String()))
 	}
 
 	return
@@ -295,7 +296,7 @@ func ConvertFloatTo(src reflect.Value, kind reflect.Kind) (result reflect.Value,
 	case reflect.String:
 		result = reflect.ValueOf(strconv.FormatFloat(r, 'g', -1, 64))
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", kind.String()))
 	}
 
 	return
@@ -361,7 +362,7 @@ func ConvertStringTo(src reflect.Value, kind reflect.Kind) (result reflect.Value
 	case reflect.String:
 		result = reflect.ValueOf(r)
 	default:
-		err = errors.New("unsupported type")
+		err = errors.New(fmt.Sprintf("unsupported kind <%s>", kind.String()))
 	}
 
 	return
