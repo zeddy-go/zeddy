@@ -114,11 +114,15 @@ func (c *Client) SetQuery(key string, values ...string) (client *Client) {
 func (c *Client) Clone() *Client {
 	switch c.clone {
 	case 0:
+		q, err := url.ParseQuery(c.queries.Encode())
+		if err != nil {
+			panic(err)
+		}
 		return &Client{
-			cookies: c.cookies,
-			headers: c.headers,
+			cookies: c.cookies[:],
+			headers: c.headers.Clone(),
 			clone:   1,
-			queries: c.queries,
+			queries: q,
 			debug:   c.debug,
 			baseUrl: c.baseUrl,
 		}
@@ -250,7 +254,11 @@ func (c *Client) Get(uri string) (resp *Response, err error) {
 	resp, err = c.Do(req)
 
 	if c.debug {
-		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		if resp == nil {
+			slog.Debug("request debug", "request", req.Info(), "response", "null")
+		} else {
+			slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		}
 	}
 
 	return

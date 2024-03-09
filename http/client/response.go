@@ -29,17 +29,21 @@ func (r *Response) ScanJson(v any) (err error) {
 func (r *Response) Info() (info map[string]any) {
 	info = make(map[string]any)
 
-	body := r.Body
-	defer body.Close()
+	if r.Body != nil {
+		body := r.Body
+		defer body.Close()
 
-	content, err := io.ReadAll(body)
-	if err != nil {
-		panic(err)
+		content, err := io.ReadAll(body)
+		if err != nil {
+			panic(err)
+		}
+
+		info["body"] = string(content)
+
+		r.Body = io.NopCloser(bytes.NewReader(content))
+	} else {
+		info["body"] = "null"
 	}
-
-	info["body"] = string(content)
-
-	r.Body = io.NopCloser(bytes.NewReader(content))
 
 	return
 }

@@ -7,7 +7,11 @@ import (
 	"strconv"
 )
 
-func ConvertTo[T any](src reflect.Value) (result T, err error) {
+func ConvertTo[T any](v any) (result T, err error) {
+	return ConvertValueTo[T](reflect.ValueOf(v))
+}
+
+func ConvertValueTo[T any](src reflect.Value) (result T, err error) {
 	r, err := ConvertToKind(src, reflect.ValueOf(result).Kind())
 	if err != nil {
 		return
