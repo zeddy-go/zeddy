@@ -9,6 +9,13 @@ import (
 	"strings"
 )
 
+const (
+	ModeLocal   = "local"
+	ModeDevelop = "develop"
+	ModeStaging = "staging"
+	ModeRelease = "release"
+)
+
 func WithPath(path string) func(*Module) {
 	return func(module *Module) {
 		module.path = path
@@ -59,13 +66,20 @@ func (m Module) Init() (err error) {
 		return
 	}
 
+	setLog(c)
+
+	return
+}
+
+func setLog(c *viper.Viper) {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 	}
+	if c.GetString("mode") == ModeLocal {
+		opts.Level = slog.LevelDebug
+	}
 
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stderr, opts)))
-
-	return
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, opts)))
 }
 
 func readConfig(path string) (result string) {
