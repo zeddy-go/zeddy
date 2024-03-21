@@ -7,6 +7,8 @@ import (
 	"github.com/zeddy-go/zeddy/contract"
 	"github.com/zeddy-go/zeddy/errx"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	healthgrpc "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 	"log/slog"
 	"net"
@@ -40,6 +42,14 @@ func (m *Module) Init() (err error) {
 	m.grpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(simpleInterceptor),
 	)
+
+	healthCheck := health.NewServer()
+	healthgrpc.RegisterHealthServer(m.grpcServer, healthCheck)
+
+	err = container.Bind[*health.Server](healthCheck, container.AsSingleton())
+	if err != nil {
+		return
+	}
 
 	if m.c.GetBool("reflection") {
 		reflection.Register(m.grpcServer)
