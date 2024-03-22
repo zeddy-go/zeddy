@@ -18,8 +18,7 @@ type Response struct {
 }
 
 func (r *Response) ScanJson(v any) (err error) {
-	defer r.Body.Close()
-	content, err := io.ReadAll(r.Body)
+	content, err := r.GetBody()
 	if err != nil {
 		return
 	}
@@ -45,5 +44,14 @@ func (r *Response) Info() (info map[string]any) {
 		info["body"] = "null"
 	}
 
+	return
+}
+
+func (r *Response) GetBody() (body []byte, err error) {
+	defer r.Body.Close()
+	body, err = io.ReadAll(r.Body)
+	if err != nil {
+		return
+	}
 	return
 }
