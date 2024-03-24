@@ -183,7 +183,7 @@ func (e Errx) GRPCStatus() *status.Status {
 			err error
 		)
 		m := &Map{}
-		m.Fields = Map2Pb(e)
+		m.Fields = Map2Pb(e.info)
 		s, err = s.WithDetails(m)
 		if err != nil {
 			panic(fmt.Errorf("build status failed: %w", err))
