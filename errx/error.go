@@ -193,6 +193,24 @@ func (e Errx) GRPCStatus() *status.Status {
 	return s
 }
 
+func (e Errx) HasCode() bool {
+	_, ok := e.info[Code]
+	return ok
+}
+
+func (e Errx) GetCode() (code int, ok bool) {
+	c, ok := e.info[Code]
+	if ok {
+		code = c.(int)
+	}
+
+	return
+}
+
+func (e Errx) SetCode(code int) {
+	e.info[Code] = code
+}
+
 // Is 判断 e 是否与 err 相等
 //
 // note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
