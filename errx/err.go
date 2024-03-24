@@ -2,19 +2,19 @@ package errx
 
 import "github.com/zeddy-go/zeddy/slicex"
 
-type DetailKey string
+type InfoKey string
 
 const (
-	Msg      DetailKey = "msg"
-	Err      DetailKey = "err"
-	File     DetailKey = "file"
-	Line     DetailKey = "line"
-	ErrStack DetailKey = "errStack"
-	Code     DetailKey = "code"
-	Detail   DetailKey = "detail"
+	Msg      InfoKey = "msg"
+	Err      InfoKey = "err"
+	File     InfoKey = "file"
+	Line     InfoKey = "line"
+	ErrStack InfoKey = "errStack"
+	Code     InfoKey = "code"
+	Detail   InfoKey = "detail"
 )
 
-var reserveKeys = []DetailKey{
+var reserveKeys = []InfoKey{
 	Msg,
 	Err,
 	File,
@@ -24,6 +24,6 @@ var reserveKeys = []DetailKey{
 	Detail,
 }
 
-func (d DetailKey) IsReserved() bool {
+func (d InfoKey) IsReserved() bool {
 	return slicex.Contains(d, reserveKeys)
 }

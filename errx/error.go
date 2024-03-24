@@ -7,29 +7,29 @@ import (
 	"runtime"
 )
 
-func WithCode(code int) func(map[DetailKey]any) {
-	return func(m map[DetailKey]any) {
+func WithCode(code int) func(map[InfoKey]any) {
+	return func(m map[InfoKey]any) {
 		m[Code] = code
 	}
 }
 
-func WithDetailMap(d map[string]any) func(map[DetailKey]any) {
-	return func(m map[DetailKey]any) {
+func WithDetailMap(d map[string]any) func(map[InfoKey]any) {
+	return func(m map[InfoKey]any) {
 		m[Detail] = d
 	}
 }
 
-func WithDetailSlice(d []any) func(map[DetailKey]any) {
-	return func(m map[DetailKey]any) {
+func WithDetailSlice(d []any) func(map[InfoKey]any) {
+	return func(m map[InfoKey]any) {
 		m[Detail] = d
 	}
 }
 
-func New(msg string, sets ...func(map[DetailKey]any)) error {
+func New(msg string, sets ...func(map[InfoKey]any)) error {
 	return NewWithSkip(msg, 1, sets...)
 }
 
-func Wrap(err error, msg string, sets ...func(map[DetailKey]any)) error {
+func Wrap(err error, msg string, sets ...func(map[InfoKey]any)) error {
 	if err == nil {
 		return nil
 	}
@@ -39,20 +39,20 @@ func Wrap(err error, msg string, sets ...func(map[DetailKey]any)) error {
 // NewFromStatus new an error from status.Status
 func NewFromStatus(s *status.Status) error {
 	e := NewWithSkip(s.Message(), 1)
-	tmp := e.(Errx)
+	tmp := e.(*Errx)
 	if statusDetails := s.Details(); len(statusDetails) > 0 {
 		if details, ok := statusDetails[0].(*Map); ok {
 			d := PbMap2MapStrAny(details)
 			for key, value := range d {
-				tmp[DetailKey(key)] = value
+				tmp.info[InfoKey(key)] = value
 			}
 		}
 	}
 	return tmp
 }
 
-func NewWithSkip(msg string, skip int, sets ...func(map[DetailKey]any)) error {
-	e := make(map[DetailKey]any, 10)
+func NewWithSkip(msg string, skip int, sets ...func(map[InfoKey]any)) error {
+	e := make(map[InfoKey]any, 10)
 	e[Msg] = msg
 
 	_, file, line, _ := runtime.Caller(1 + skip)
@@ -70,31 +70,33 @@ func NewWithSkip(msg string, skip int, sets ...func(map[DetailKey]any)) error {
 		set(e)
 	}
 
-	return Errx(e)
+	return &Errx{
+		info: e,
+	}
 }
 
-func WrapWithSkip(err error, message string, skip int, sets ...func(map[DetailKey]any)) error {
-	e := NewWithSkip(message, skip+1, sets...).(Errx)
-	e[Err] = err
+func WrapWithSkip(err error, message string, skip int, sets ...func(map[InfoKey]any)) error {
+	e := NewWithSkip(message, skip+1, sets...).(*Errx)
+	e.info[Err] = err
 
 	switch x := err.(type) {
-	case Errx:
-		e[ErrStack] = fmt.Sprintf(
+	case *Errx:
+		e.info[ErrStack] = fmt.Sprintf(
 			"%s:%d:%s\n%s",
-			e[File],
-			e[Line],
-			e[Msg],
+			e.info[File],
+			e.info[Line],
+			e.info[Msg],
 			x.ErrStack(),
 		)
-		if code, ok := x[Code]; ok && e[Code] == 0 {
-			e[Code] = code
+		if code, ok := x.info[Code]; ok && e.info[Code] == 0 {
+			e.info[Code] = code
 		}
 	default:
-		e[ErrStack] = fmt.Sprintf(
+		e.info[ErrStack] = fmt.Sprintf(
 			"%s:%d:%s\n%s",
-			e[File],
-			e[Line],
-			e[Msg],
+			e.info[File],
+			e.info[Line],
+			e.info[Msg],
 			x.(error).Error(),
 		)
 	}
@@ -102,16 +104,21 @@ func WrapWithSkip(err error, message string, skip int, sets ...func(map[DetailKe
 	return e
 }
 
-type Errx map[DetailKey]any
+// Errx error扩展结构体
+//
+// note: 如果直接用map，则无法使用errors包的工具函数，如 errors.Is
+type Errx struct {
+	info map[InfoKey]any
+}
 
 func (e Errx) Error() string {
-	msg := e[Msg].(string)
-	if sub, ok := e[Err]; ok {
+	msg := e.info[Msg].(string)
+	if sub, ok := e.info[Err]; ok {
 		switch x := sub.(type) {
 		case Errx:
-			msg += ":" + x[Msg].(string)
+			msg += ": " + x.info[Msg].(string)
 		default:
-			msg += ":" + sub.(error).Error()
+			msg += ": " + sub.(error).Error()
 		}
 	}
 
@@ -119,19 +126,28 @@ func (e Errx) Error() string {
 }
 
 func (e Errx) ErrStack() string {
-	return e[ErrStack].(string)
+	return e.info[ErrStack].(string)
 }
 
-type Fields map[DetailKey]any
+func (e Errx) Unwrap() error {
+	return e.info[Err].(error)
+}
+
+type Fields map[InfoKey]any
 
 func (e Errx) Set(fields Fields) {
 	for key, value := range fields {
-		e[key] = value
+		e.info[key] = value
 	}
 }
 
-func (e Errx) Get(field DetailKey) (value any, ok bool) {
-	value, ok = e[field]
+func (e Errx) Get(field InfoKey) (value any, ok bool) {
+	value, ok = e.info[field]
+	return
+}
+
+func (e Errx) MustGet(field InfoKey) (value any) {
+	value, _ = e.info[field]
 	return
 }
 
@@ -140,14 +156,14 @@ func (e Errx) Format(s fmt.State, c rune) {
 	case 'v':
 		switch {
 		case s.Flag('+'):
-			_, _ = s.Write([]byte(fmt.Sprintf("%s:%d:%s\n", e[File], e[Line], e[Msg])))
+			_, _ = s.Write([]byte(fmt.Sprintf("%s:%d:%s\n", e.info[File], e.info[Line], e.info[Msg])))
 		case s.Flag('#'):
-			_, _ = s.Write([]byte(e[ErrStack].(string)))
+			_, _ = s.Write([]byte(e.info[ErrStack].(string)))
 		default:
-			if e[Err] != nil {
-				_, _ = s.Write([]byte(fmt.Sprintf("%s]<=[%v\n", e[Msg], e[Err])))
+			if e.info[Err] != nil {
+				_, _ = s.Write([]byte(fmt.Sprintf("%s]<=[%v\n", e.info[Msg], e.info[Err])))
 			} else {
-				_, _ = s.Write([]byte(e[Msg].(string) + "\n"))
+				_, _ = s.Write([]byte(e.info[Msg].(string) + "\n"))
 			}
 		}
 	}
@@ -155,14 +171,14 @@ func (e Errx) Format(s fmt.State, c rune) {
 
 func (e Errx) GRPCStatus() *status.Status {
 	var code codes.Code
-	if e[Code] != nil {
-		code = codes.Code(e[Code].(int))
+	if e.info[Code] != nil {
+		code = codes.Code(e.info[Code].(int))
 	} else {
 		code = codes.Unknown
 	}
 	s := status.New(code, e.Error())
 
-	if len(e) > 0 {
+	if len(e.info) > 0 {
 		var (
 			err error
 		)
@@ -177,10 +193,35 @@ func (e Errx) GRPCStatus() *status.Status {
 	return s
 }
 
-func GetErrxField[T any](err any, key DetailKey) (result T) {
-	tmp, _ := err.(Errx).Get(key)
+// Is 判断 e 是否与 err 相等
+//
+// note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
+func (e Errx) Is(err error) bool {
+	switch x := err.(type) {
+	case *Errx:
+		code1, ok1 := e.info[Code]
+		code2, ok2 := x.info[Code]
+		return (ok1 && ok2) && code1 == code2
+	default:
+		return false
+	}
+}
+
+func GetErrxField[T any](err any, key InfoKey) (result T) {
+	tmp, _ := err.(*Errx).Get(key)
 	if tmp != nil {
 		return tmp.(T)
 	}
 	return
+}
+
+// Is 判断 err 是否与 target 相等
+//
+// note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
+func Is(err error, target error) bool {
+	if x, ok := err.(*Errx); !ok {
+		return false
+	} else {
+		return x.Is(target)
+	}
 }

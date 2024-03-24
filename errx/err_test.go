@@ -1,12 +1,32 @@
 package errx
 
 import (
+	"errors"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"testing"
 )
 
 func TestXxx(t *testing.T) {
 	err := New("123")
 	err2 := WrapWithSkip(err, "321", 0)
-	fmt.Printf("%#v", err2)
+	require.Equal(t, "F:/projects/zeddy/zeddy/errx/err_test.go:12:321\nF:/projects/zeddy/zeddy/errx/err_test.go:11:123\n\n", fmt.Sprintf("%#v\n", err2))
+	require.Equal(t, "321: 123", err2.Error())
+	require.Equal(t, "F:/projects/zeddy/zeddy/errx/err_test.go:12:321\n\n", fmt.Sprintf("%+v\n", err2))
+}
+
+func TestErrorIs(t *testing.T) {
+	e := New("test")
+	ee := Wrap(e, "test2")
+	a := ee
+	require.True(t, errors.Is(a, e))
+}
+
+func TestChange(t *testing.T) {
+	e := New("test").(*Errx)
+	e.Set(map[InfoKey]any{
+		"detail": "test",
+	})
+
+	require.Equal(t, "test", e.MustGet(Detail))
 }
