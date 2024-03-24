@@ -75,7 +75,7 @@ func setLog(c *viper.Viper) {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 	}
-	if c.GetString("mode") == ModeLocal {
+	if c.GetString("mode") == ModeLocal || c.GetBool("showDebugLog") {
 		opts.Level = slog.LevelDebug
 	}
 
