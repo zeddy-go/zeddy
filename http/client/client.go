@@ -171,8 +171,7 @@ func (c *Client) buildUrl(uri string) (u string, err error) {
 }
 
 func (c *Client) PostJson(uri string, body any) (resp *Response, err error) {
-	c.SetHeader("Content-Type", "application/json")
-	return c.Post(uri, body)
+	return c.SetHeader("Content-Type", "application/json").Post(uri, body)
 }
 
 func (c *Client) Post(uri string, body any) (resp *Response, err error) {
@@ -196,8 +195,7 @@ func (c *Client) Post(uri string, body any) (resp *Response, err error) {
 }
 
 func (c *Client) PutJson(uri string, body any) (resp *Response, err error) {
-	c.SetHeader("Content-Type", "application/json")
-	return c.Put(uri, body)
+	return c.SetHeader("Content-Type", "application/json").Put(uri, body)
 }
 
 func (c *Client) Put(uri string, body any) (resp *Response, err error) {
