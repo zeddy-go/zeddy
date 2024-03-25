@@ -15,6 +15,12 @@ func TestXxx(t *testing.T) {
 	require.Equal(t, "F:/projects/zeddy/zeddy/errx/err_test.go:12:321\n\n", fmt.Sprintf("%+v\n", err2))
 }
 
+func TestErrxIs(t *testing.T) {
+	require.True(t, Is(Wrap(New("test"), "test2"), New("test")))
+	require.True(t, Is(Wrap(New("test", WithCode(1)), "test2"), New("test3", WithCode(1))))
+	require.False(t, Is(Wrap(New("test", WithCode(1)), "test2"), New("test3")))
+}
+
 func TestErrorIs(t *testing.T) {
 	e := New("test")
 	ee := Wrap(e, "test2")

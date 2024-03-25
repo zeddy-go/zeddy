@@ -1,6 +1,7 @@
 package errx
 
 import (
+	"errors"
 	"fmt"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,9 +31,6 @@ func New(msg string, sets ...func(map[InfoKey]any)) error {
 }
 
 func Wrap(err error, msg string, sets ...func(map[InfoKey]any)) error {
-	if err == nil {
-		return nil
-	}
 	return WrapWithSkip(err, msg, 1, sets...)
 }
 
@@ -76,6 +74,9 @@ func NewWithSkip(msg string, skip int, sets ...func(map[InfoKey]any)) error {
 }
 
 func WrapWithSkip(err error, message string, skip int, sets ...func(map[InfoKey]any)) error {
+	if err == nil {
+		return nil
+	}
 	e := NewWithSkip(message, skip+1, sets...).(*Errx)
 	e.info[Err] = err
 
@@ -130,7 +131,11 @@ func (e Errx) ErrStack() string {
 }
 
 func (e Errx) Unwrap() error {
-	return e.info[Err].(error)
+	if err, ok := e.info[Err]; ok {
+		return err.(error)
+	} else {
+		return nil
+	}
 }
 
 type Fields map[InfoKey]any
@@ -215,13 +220,20 @@ func (e Errx) SetCode(code int) {
 //
 // note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
 func (e Errx) Is(err error) bool {
-	switch x := err.(type) {
-	case *Errx:
-		code1, ok1 := e.info[Code]
-		code2, ok2 := x.info[Code]
-		return (ok1 && ok2) && code1 == code2
-	default:
-		return false
+	for {
+		if err == nil {
+			return false
+		}
+		if x, ok := err.(*Errx); ok {
+			code1, ok1 := e.info[Code]
+			code2, ok2 := x.info[Code]
+			msg1, ok3 := e.info[Msg]
+			msg2, ok4 := x.info[Msg]
+			if ((ok1 && ok2) && code1 == code2) || ((ok3 && ok4) && msg1 == msg2) {
+				return true
+			}
+		}
+		err = errors.Unwrap(err)
 	}
 }
 
@@ -237,9 +249,9 @@ func GetErrxField[T any](err any, key InfoKey) (result T) {
 //
 // note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
 func Is(err error, target error) bool {
-	if x, ok := err.(*Errx); !ok {
+	if x, ok := target.(*Errx); !ok {
 		return false
 	} else {
-		return x.Is(target)
+		return x.Is(err)
 	}
 }
