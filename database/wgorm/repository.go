@@ -7,6 +7,12 @@ import (
 	"gorm.io/gorm"
 )
 
+func NewRepositoryUseTx[PO any, Entity any](tx *gorm.DB) *Repository[PO, Entity] {
+	return &Repository[PO, Entity]{
+		IDBHolder: NewDBHolder(tx),
+	}
+}
+
 type Repository[PO any, Entity any] struct {
 	database.IDBHolder[*gorm.DB]
 }
@@ -120,4 +126,17 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...dat
 	mapper.MustSimpleMapSlice(&list, poList)
 
 	return
+}
+
+func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity, *gorm.DB], list []Entity) error) (err error) {
+	return r.TransactionTx(func(tx *gorm.DB) (err error) {
+		var list []PO
+		return tx.FindInBatches(&list, batchSize, func(tx *gorm.DB, batch int) (err error) {
+			var entities []Entity
+			mapper.MustSimpleMapSlice(&entities, list)
+			repo := NewRepositoryUseTx[PO, Entity](tx)
+			err = callback(repo, entities)
+			return
+		}).Error
+	})
 }

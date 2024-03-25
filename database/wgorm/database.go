@@ -33,8 +33,33 @@ type DBHolder struct {
 	lock sync.Mutex
 }
 
-func (d *DBHolder) Transaction(f func() error) (err error) {
-	d.Begin()
+func (d *DBHolder) BeginTx(sets ...func(*sql.TxOptions)) (tx *gorm.DB) {
+	db := d.root.Session(&gorm.Session{
+		SkipDefaultTransaction: true,
+		Logger:                 d.root.Logger,
+	})
+	opts := &sql.TxOptions{}
+	for _, set := range sets {
+		set(opts)
+	}
+	return db.Begin(opts)
+}
+
+func (d *DBHolder) TransactionTx(f func(tx *gorm.DB) error, sets ...func(*sql.TxOptions)) (err error) {
+	tx := d.BeginTx(sets...)
+	err = f(tx)
+
+	if err != nil {
+		tx.Rollback()
+	} else {
+		tx.Commit()
+	}
+
+	return
+}
+
+func (d *DBHolder) Transaction(f func() error, sets ...func(*sql.TxOptions)) (err error) {
+	d.Begin(sets...)
 	err = f()
 	if err != nil {
 		d.Rollback()
@@ -51,15 +76,7 @@ func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
 
 	db := d.get()
 	if db == nil {
-		db = d.root.Session(&gorm.Session{
-			SkipDefaultTransaction: true,
-			Logger:                 d.root.Logger,
-		})
-		opts := &sql.TxOptions{}
-		for _, set := range sets {
-			set(opts)
-		}
-		db = db.Begin(opts)
+		db = d.BeginTx(sets...)
 		d.put(db)
 	}
 }
