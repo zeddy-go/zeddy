@@ -247,8 +247,11 @@ func GetErrxField[T any](err any, key InfoKey) (result T) {
 
 // Is 判断 err 是否与 target 相等
 //
-// note: 与 errors.Is 的行为不同的是，**这个相等指各自包含的 code 相等**
+// note: 与 errors.Is 的行为不同的是，**这个相等还包括各自包含的 code 相等**
 func Is(err error, target error) bool {
+	if errors.Is(err, target) {
+		return true
+	}
 	if x, ok := target.(*Errx); !ok {
 		return false
 	} else {

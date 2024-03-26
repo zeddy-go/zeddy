@@ -7,6 +7,19 @@ import (
 	"testing"
 )
 
+func TestGrpcStatus(t *testing.T) {
+	e := Wrap(errors.New("test"), "test1").(*Errx)
+	e2 := NewFromStatus(e.GRPCStatus())
+	fmt.Printf("%+v\n", e2 == nil)
+	fmt.Printf("%#v\n", e2)
+}
+
+func TestErrorsIs(t *testing.T) {
+	e1 := errors.New("test")
+	e2 := fmt.Errorf("test2: %w", e1)
+	require.True(t, Is(e2, e1))
+}
+
 func TestXxx(t *testing.T) {
 	err := New("123")
 	err2 := WrapWithSkip(err, "321", 0)

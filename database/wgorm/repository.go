@@ -112,7 +112,7 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...dat
 	if err != nil {
 		return
 	}
-	err = db.Count(&total).Error
+	err = db.Model(new(PO)).Count(&total).Error
 	if err != nil {
 		return
 	}
