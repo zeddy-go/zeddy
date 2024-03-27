@@ -57,6 +57,9 @@ func First[T any](arr ...T) (result T) {
 }
 
 func Contains[T comparable](finds any, data []T) (found bool) {
+	if data == nil {
+		return false
+	}
 	switch x := finds.(type) {
 	case []T:
 		for _, find := range x {
