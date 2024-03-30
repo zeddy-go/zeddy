@@ -40,8 +40,16 @@ func AsSingleton() func(*bindOpts) {
 	}
 }
 
+func NoSingleton() func(*bindOpts) {
+	return func(opts *bindOpts) {
+		opts.Singleton = false
+	}
+}
+
 func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bindOpts)) (err error) {
-	options := &bindOpts{}
+	options := &bindOpts{
+		Singleton: true,
+	}
 	for _, opt := range opts {
 		opt(options)
 	}

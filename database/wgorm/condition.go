@@ -11,6 +11,9 @@ import (
 	"gorm.io/gorm"
 )
 
+var ApplySingle = applySingle
+var ApplyConditions = applyConditions
+
 func applySingle(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err error) {
 	if len(c) < 2 {
 		return db, errx.New("condition require at least 2 params")
