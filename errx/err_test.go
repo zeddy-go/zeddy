@@ -1,11 +1,40 @@
 package errx
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"net"
 	"testing"
+	"time"
 )
+
+type testServer struct {
+	UnimplementedTestServer
+}
+
+func (t testServer) Test(context.Context, *NoContent) (*NoContent, error) {
+	return nil, New("test")
+}
+
+func TestGrpcTrans(t *testing.T) {
+	lis, err := net.Listen("tcp", "0.0.0.0:8888")
+	require.NoError(t, err)
+	s := grpc.NewServer()
+	RegisterTestServer(s, testServer{})
+	go s.Serve(lis)
+
+	time.Sleep(time.Second)
+
+	cc, err := grpc.Dial("0.0.0.0:8888", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
+	c := NewTestClient(cc)
+	_, err = c.Test(context.Background(), &NoContent{})
+	fmt.Printf("%+v\n", err)
+}
 
 func TestGrpcStatus(t *testing.T) {
 	e := Wrap(errors.New("test"), "test1").(*Errx)

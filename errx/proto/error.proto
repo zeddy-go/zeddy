@@ -1,8 +1,14 @@
 //cd .. && protoc -I ./proto ./proto/error.proto --go_out=. --go-grpc_out=. --go-grpc_opt=paths=source_relative --go_opt=paths=source_relative
-
+//cd .. && protoc -I ./proto ./proto/error.proto --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative
 syntax = "proto3";
 
 option go_package = "github.com/zeddy-go/zeddy/errx";
+
+service Test {
+  rpc Test(NoContent) returns (NoContent);
+}
+
+message NoContent {}
 
 message Map {
   map<string, Value> Fields = 1;
