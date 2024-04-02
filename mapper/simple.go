@@ -117,15 +117,6 @@ func (s *Simple) mapStructToMap(dst reflect.Value, src reflect.Value) (err error
 		}
 
 		dst.SetMapIndex(reflect.ValueOf(fieldName), src.Field(i))
-		//field := dst.FieldByName(fieldName)
-		//if field.IsZero() || field.IsValid() {
-		//	continue
-		//}
-		//
-		//err = reflectx.SetValue(src.Field(i), field)
-		//if err != nil {
-		//	return
-		//}
 	}
 
 	return
