@@ -67,7 +67,10 @@ func Map2Pb(val any) (m map[string]*Value) {
 			panic(errors.New("map key can only be string"))
 			return
 		}
-		m[key.String()] = Any2PbValue(iter.Value().Interface())
+		v := Any2PbValue(iter.Value().Interface())
+		if v != nil {
+			m[key.String()] = v
+		}
 	}
 
 	return
@@ -99,6 +102,14 @@ func Any2PbValue(val any) (value *Value) {
 				Int64Val: int64(x),
 			}
 		}
+	case *Errx:
+		value.Kind = &Value_StrVal{
+			StrVal: x.ErrStack(),
+		}
+	case error:
+		value.Kind = &Value_StrVal{
+			StrVal: x.Error(),
+		}
 	default:
 		v := reflect.ValueOf(val)
 		switch v.Kind() {
@@ -123,6 +134,8 @@ func Any2PbValue(val any) (value *Value) {
 				s.ListVal.List = append(s.ListVal.List, pbValue)
 			}
 			value.Kind = s
+		default:
+			return nil
 		}
 	}
 	return

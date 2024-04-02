@@ -8,9 +8,28 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"net"
+	"path/filepath"
 	"testing"
 	"time"
 )
+
+func TestXxx(t *testing.T) {
+	prefix, _ := filepath.Abs(".")
+	err := New("123")
+	err2 := WrapWithSkip(err, "321", 0)
+	require.Equal(t, prefix+"/err_test.go:19:321\n"+prefix+"/err_test.go:18:123\n\n", fmt.Sprintf("%#v\n", err2))
+	require.Equal(t, "321: 123", err2.Error())
+	require.Equal(t, prefix+"/err_test.go:19:321\n\n", fmt.Sprintf("%+v\n", err2))
+}
+
+func TestGrpcStatus(t *testing.T) {
+	e := Wrap(Wrap(errors.New("test"), "test1"), "test2").(*Errx)
+	e2 := NewFromStatus(e.GRPCStatus())
+	require.NotNil(t, e2)
+	prefix, _ := filepath.Abs(".")
+	expect := prefix + "/err_test.go:26:test2\n" + prefix + "/err_test.go:26:test1\n" + "test"
+	require.Equal(t, expect, fmt.Sprintf("%#v", e2))
+}
 
 type testServer struct {
 	UnimplementedTestServer
@@ -36,25 +55,10 @@ func TestGrpcTrans(t *testing.T) {
 	fmt.Printf("%+v\n", err)
 }
 
-func TestGrpcStatus(t *testing.T) {
-	e := Wrap(errors.New("test"), "test1").(*Errx)
-	e2 := NewFromStatus(e.GRPCStatus())
-	fmt.Printf("%+v\n", e2 == nil)
-	fmt.Printf("%#v\n", e2)
-}
-
 func TestErrorsIs(t *testing.T) {
 	e1 := errors.New("test")
 	e2 := fmt.Errorf("test2: %w", e1)
 	require.True(t, Is(e2, e1))
-}
-
-func TestXxx(t *testing.T) {
-	err := New("123")
-	err2 := WrapWithSkip(err, "321", 0)
-	require.Equal(t, "F:/projects/zeddy/zeddy/errx/err_test.go:12:321\nF:/projects/zeddy/zeddy/errx/err_test.go:11:123\n\n", fmt.Sprintf("%#v\n", err2))
-	require.Equal(t, "321: 123", err2.Error())
-	require.Equal(t, "F:/projects/zeddy/zeddy/errx/err_test.go:12:321\n\n", fmt.Sprintf("%+v\n", err2))
 }
 
 func TestErrxIs(t *testing.T) {
@@ -73,7 +77,7 @@ func TestErrorIs(t *testing.T) {
 func TestChange(t *testing.T) {
 	e := New("test").(*Errx)
 	e.Set(map[InfoKey]any{
-		"detail": "test",
+		Detail: "test",
 	})
 
 	require.Equal(t, "test", e.MustGet(Detail))
