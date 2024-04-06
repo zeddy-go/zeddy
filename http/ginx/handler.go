@@ -85,9 +85,9 @@ func buildParams(fType reflect.Type, ctx *gin.Context) (params []reflect.Value, 
 				}
 			}
 			err = ctx.ShouldBindUri(p.Interface())
-			if err != nil {
-				return
-			}
+			//if err != nil {
+			//	return
+			//}
 			err = ctx.ShouldBindJSON(p.Interface())
 			if err != nil {
 				if err == io.EOF {
