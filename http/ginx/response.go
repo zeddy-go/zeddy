@@ -1,12 +1,12 @@
 package ginx
 
 import (
+	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/zeddy-go/zeddy/errx"
 	"gorm.io/gorm"
-	"log/slog"
 	"net/http"
 )
 
@@ -63,24 +63,33 @@ type IFile interface {
 }
 
 type IMeta interface {
-	GetMeta() any
+	GetMeta() map[string]any
 }
 
 type Meta struct {
+	Code        int  `json:"code,omitempty"`
 	CurrentPage uint `json:"currentPage,omitempty"`
 	Total       uint `json:"total,omitempty"`
 	LastPage    uint `json:"lastPage,omitempty"`
 	PerPage     uint `json:"perPage,omitempty"`
 }
 
-func (m *Meta) GetMeta() any {
-	return m
+func (m *Meta) GetMeta() (result map[string]any) {
+	s, err := json.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+	err = json.Unmarshal(s, &result)
+	if err != nil {
+		panic(err)
+	}
+	return
 }
 
 type Response struct {
-	Data    interface{} `json:"data"`
-	Message string      `json:"message"`
-	Meta    any         `json:"meta,omitempty"`
+	Data    interface{}    `json:"data"`
+	Message string         `json:"message"`
+	Meta    map[string]any `json:"meta,omitempty"`
 }
 
 type ResponseWithCode struct {
@@ -88,92 +97,75 @@ type ResponseWithCode struct {
 	Response
 }
 
-// Error 返回错误响应
-func Error(c *gin.Context, err error, status int) {
-	code, res := parseError(status, err)
-	Json(c, res, code, false)
-}
-
-func ErrorAbort(c *gin.Context, err error, status int) {
-	code, res := parseError(status, err)
-	Json(c, res, code, true)
-}
-
-func parseError(status int, err error) (code int, res *Response) {
-	res = &Response{Message: err.Error()}
-
-	if status != 0 {
-		code = status
-	} else {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			code = http.StatusNotFound
-		} else if er, ok := err.(errx.Errx); ok && errx.GetErrxField[int](er, errx.Code) != 0 {
-			code = errx.GetErrxField[int](er, errx.Code)
-			res.Data = errx.GetErrxField[any](er, errx.Detail)
-		} else {
-			code = http.StatusInternalServerError
-		}
-	}
-
-	return
-}
-
-func Pagination(c *gin.Context, data interface{}, total int) {
-	resp := &Response{
-		Meta: &Meta{
-			Total: uint(total),
+func NewAllOkStatusJsonResponse(data any, meta IMeta, err error) IResponse[*gin.Context] {
+	resp := &AllOkStatusJsonResponse{
+		Err: err,
+		Response: &ResponseWithCode{
+			Response: Response{},
 		},
-		Data: data,
+		DefaultErrCode: 1,
 	}
-	Json(c, resp, http.StatusOK, false)
+	if data != nil {
+		resp.Response.Data = data
+	}
+	if meta != nil {
+		resp.Response.Meta = meta.GetMeta()
+		if code, ok := resp.Response.Meta["code"]; ok {
+			resp.Response.Code = int(code.(float64))
+			delete(resp.Response.Meta, "code")
+		}
+	}
+
+	return resp
 }
 
-func Success(c *gin.Context, data any, status int) {
-	var (
-		code     int
-		response *Response
-	)
+type AllOkStatusJsonResponse struct {
+	Err            error
+	Response       *ResponseWithCode
+	DefaultErrCode int
+}
 
-	if status != 0 {
-		code = status
-	} else {
-		if data == nil {
-			code = http.StatusNoContent
+func (r *AllOkStatusJsonResponse) Do(ctx *gin.Context) {
+	if r.Err != nil {
+		var abort bool
+		var data any
+		message := r.Err.Error()
+		status := http.StatusOK
+		r.Response.Code = r.DefaultErrCode
+		if x, ok := r.Err.(*errx.Errx); ok {
+			if c, ok := x.Get(errx.Code); ok {
+				r.Response.Code = c.(int)
+			}
+			abort = errx.GetErrxField[bool](x, errx.Abort)
+		} else if _, ok := r.Err.(validator.ValidationErrors); ok {
+			//code = http.StatusUnprocessableEntity
+			//TODO: i18n and detail
+		} else if errors.Is(r.Err, gorm.ErrRecordNotFound) {
+			//code = http.StatusNotFound
+		}
+		r.Response.Response = Response{
+			Message: message,
+			Data:    data,
+		}
+		if abort {
+			ctx.AbortWithStatusJSON(status, r.Response)
 		} else {
-			code = http.StatusOK
+			ctx.JSON(status, r.Response)
 		}
+		return
 	}
 
-	if x, ok := data.(IFile); ok {
-		c.Status(http.StatusOK)
-		c.Header("Content-Type", x.MimeType())
-		if name := x.Name(); name != "" {
-			c.Header("Content-Disposition", "attachment;filename="+name)
-		}
-		_, err := c.Writer.Write(x.Content())
-		if err != nil {
-			slog.Error("write file error", err)
-		}
-	} else {
-		response = &Response{
-			Data: data,
-		}
-
-		Json(c, response, code, false)
+	if r.Response == nil || r.Response.Data == nil {
+		ctx.JSON(http.StatusOK, nil)
+		return
 	}
+
+	ctx.JSON(http.StatusOK, r.Response)
 }
 
-func Json(ctx *gin.Context, data interface{}, status int, abort bool) {
-	if abort {
-		ctx.AbortWithStatusJSON(status, data)
-	} else {
-		ctx.JSON(status, data)
-	}
-}
-
-func NewJsonResponse(data any, meta IMeta, err error) *JsonResponse {
+func NewJsonResponse(data any, meta IMeta, err error) IResponse[*gin.Context] {
 	resp := &JsonResponse{
-		err: err,
+		Err: err,
 	}
 	if data != nil || meta != nil {
 		rr := &Response{}
@@ -183,50 +175,50 @@ func NewJsonResponse(data any, meta IMeta, err error) *JsonResponse {
 		if meta != nil {
 			rr.Meta = meta.GetMeta()
 		}
-		resp.response = rr
+		resp.Response = rr
 	}
 
 	return resp
 }
 
 type JsonResponse struct {
-	err      error
-	response *Response
+	Err      error
+	Response *Response
 }
 
 func (r *JsonResponse) Do(ctx *gin.Context) {
-	if r.err != nil {
+	if r.Err != nil {
 		var abort bool
 		var data any
-		message := r.err.Error()
+		message := r.Err.Error()
 		status := http.StatusInternalServerError
-		if x, ok := r.err.(*errx.Errx); ok && http.StatusText(errx.GetErrxField[int](x, errx.Code)) != "" {
+		if x, ok := r.Err.(*errx.Errx); ok && http.StatusText(errx.GetErrxField[int](x, errx.Code)) != "" {
 			status = errx.GetErrxField[int](x, errx.Code)
 			abort = errx.GetErrxField[bool](x, errx.Abort)
-		} else if _, ok := r.err.(validator.ValidationErrors); ok {
+		} else if _, ok := r.Err.(validator.ValidationErrors); ok {
 			status = http.StatusUnprocessableEntity
 			//TODO: i18n and detail
-		} else if errors.Is(r.err, gorm.ErrRecordNotFound) {
+		} else if errors.Is(r.Err, gorm.ErrRecordNotFound) {
 			status = http.StatusNotFound
 		}
-		r.response = &Response{
+		r.Response = &Response{
 			Message: message,
 			Data:    data,
 		}
 		if abort {
-			ctx.AbortWithStatusJSON(status, r.response)
+			ctx.AbortWithStatusJSON(status, r.Response)
 		} else {
-			ctx.JSON(status, r.response)
+			ctx.JSON(status, r.Response)
 		}
 		return
 	}
 
-	if r.response == nil || r.response.Data == nil {
+	if r.Response == nil || r.Response.Data == nil {
 		ctx.JSON(http.StatusNoContent, nil)
 		return
 	}
 
-	ctx.JSON(http.StatusOK, r.response)
+	ctx.JSON(http.StatusOK, r.Response)
 }
 
 type IResponse[CTX any] interface {

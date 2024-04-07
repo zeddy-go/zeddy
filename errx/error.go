@@ -14,6 +14,12 @@ func WithCode(code int) func(map[InfoKey]any) {
 	}
 }
 
+func WithAbort() func(map[InfoKey]any) {
+	return func(m map[InfoKey]any) {
+		m[Abort] = true
+	}
+}
+
 func WithDetailMap(d map[string]any) func(map[InfoKey]any) {
 	return func(m map[InfoKey]any) {
 		m[Detail] = d

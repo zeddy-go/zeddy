@@ -3,13 +3,17 @@ package ginx
 import (
 	"errors"
 	"github.com/gin-gonic/gin/binding"
-	"net/http"
+	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/reflectx"
 )
+
+type NewResponseFunc func(data any, meta IMeta, err error) IResponse[*gin.Context]
+
+var DefaultNewResponseFunc NewResponseFunc = NewJsonResponse
 
 func GinMiddleware(f any) gin.HandlerFunc {
 	fType := reflect.TypeOf(f)
@@ -24,9 +28,7 @@ func GinMiddleware(f any) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		params, err := buildParams(fType, ctx)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, &Response{
-				Message: err.Error(),
-			})
+			parseAndResponse(reflect.ValueOf(errx.Wrap(err, "build params failed", errx.WithAbort())))
 			return
 		}
 
@@ -53,13 +55,13 @@ func GinHandler(f any) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		params, err := buildParams(fType, ctx)
 		if err != nil {
-			response(reflect.ValueOf(err)).Do(ctx)
+			parseAndResponse(reflect.ValueOf(err)).Do(ctx)
 			return
 		}
 
 		results := reflect.ValueOf(f).Call(params)
 
-		response(results...).Do(ctx)
+		parseAndResponse(results...).Do(ctx)
 	}
 }
 
@@ -134,7 +136,8 @@ func checkResult(ctx *gin.Context, results []reflect.Value) {
 		}
 		switch x := r.(type) {
 		case error:
-			ErrorAbort(ctx, x, 0)
+			err := errx.Wrap(x, "middleware error", errx.WithAbort())
+			DefaultNewResponseFunc(nil, nil, err).Do(ctx)
 		}
 		return
 	default:
@@ -142,31 +145,31 @@ func checkResult(ctx *gin.Context, results []reflect.Value) {
 	}
 }
 
-func response(results ...reflect.Value) (resp IResponse[*gin.Context]) {
+func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 	switch len(results) {
 	case 0:
-		resp = NewJsonResponse(nil, nil, nil)
+		resp = DefaultNewResponseFunc(nil, nil, nil)
 	case 1:
 		r := results[0].Interface()
 		if r == nil {
-			resp = NewJsonResponse(nil, nil, nil)
+			resp = DefaultNewResponseFunc(nil, nil, nil)
 			break
 		}
 		switch x := r.(type) {
 		case error:
-			resp = NewJsonResponse(nil, nil, x)
+			resp = DefaultNewResponseFunc(nil, nil, x)
 		default:
-			resp = NewJsonResponse(r, nil, nil)
+			resp = DefaultNewResponseFunc(r, nil, nil)
 		}
 	case 2:
 		if results[1].IsValid() && !results[1].IsNil() {
-			resp = NewJsonResponse(nil, nil, results[1].Interface().(error))
+			resp = DefaultNewResponseFunc(nil, nil, results[1].Interface().(error))
 			break
 		}
-		resp = NewJsonResponse(results[0].Interface(), nil, nil)
+		resp = DefaultNewResponseFunc(results[0].Interface(), nil, nil)
 	case 3:
 		if results[2].IsValid() && !results[2].IsNil() {
-			resp = NewJsonResponse(nil, nil, results[2].Interface().(error))
+			resp = DefaultNewResponseFunc(nil, nil, results[2].Interface().(error))
 			break
 		}
 
@@ -175,9 +178,9 @@ func response(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 			if err != nil {
 				panic(err)
 			}
-			resp = NewJsonResponse(results[1].Interface(), &Meta{Total: uint(tmp.Interface().(int))}, nil)
+			resp = DefaultNewResponseFunc(results[1].Interface(), &Meta{Total: uint(tmp.Interface().(int))}, nil)
 		} else if m, ok := results[0].Interface().(IMeta); ok {
-			resp = NewJsonResponse(results[1].Interface(), m, nil)
+			resp = DefaultNewResponseFunc(results[1].Interface(), m, nil)
 		} else {
 			panic(errors.New("three results only for pagination"))
 		}
