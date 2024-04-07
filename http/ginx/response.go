@@ -83,12 +83,8 @@ type Response struct {
 }
 
 type ResponseWithCode struct {
-	Code
-	Response
-}
-
-type Code struct {
 	Code int `json:"code"`
+	Response
 }
 
 // Error 返回错误响应
@@ -119,6 +115,16 @@ func parseError(status int, err error) (code int, res *Response) {
 	}
 
 	return
+}
+
+func Pagination(c *gin.Context, data interface{}, total int) {
+	resp := &Response{
+		Meta: &Meta{
+			Total: uint(total),
+		},
+		Data: data,
+	}
+	Json(c, resp, http.StatusOK, false)
 }
 
 func Success(c *gin.Context, data any, status int) {
@@ -154,16 +160,6 @@ func Success(c *gin.Context, data any, status int) {
 
 		Json(c, response, code, false)
 	}
-}
-
-func Pagination(c *gin.Context, data interface{}, total int) {
-	resp := &Response{
-		Meta: &Meta{
-			Total: uint(total),
-		},
-		Data: data,
-	}
-	Json(c, resp, http.StatusOK, false)
 }
 
 func Json(ctx *gin.Context, data interface{}, status int, abort bool) {

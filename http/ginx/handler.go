@@ -2,7 +2,7 @@ package ginx
 
 import (
 	"errors"
-	"io"
+	"github.com/gin-gonic/gin/binding"
 	"net/http"
 	"reflect"
 
@@ -43,65 +43,83 @@ func GinHandler(f any) gin.HandlerFunc {
 	}
 
 	if fType.NumOut() > 3 {
-		panic(errors.New("middleware should return results not more than 3"))
+		panic(errors.New("should not return results more than 3"))
 	} else if fType.NumOut() == 3 {
 		if !isNumber(fType.Out(0)) && fType.Out(0).Name() != "IMeta" {
-			panic(errors.New("first result should be number(total of records) or IMeta"))
+			panic(errors.New("first one of results should be number(total of records) or IMeta"))
 		}
 	}
 
 	return func(ctx *gin.Context) {
 		params, err := buildParams(fType, ctx)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, &Response{
-				Message: err.Error(),
-			})
+			response(ctx, reflect.ValueOf(err))
 			return
 		}
 
 		results := reflect.ValueOf(f).Call(params)
 
-		response(ctx, results)
+		response(ctx, results...)
 	}
 }
 
 func buildParams(fType reflect.Type, ctx *gin.Context) (params []reflect.Value, err error) {
 	params = make([]reflect.Value, fType.NumIn())
+	valueCtx := reflect.ValueOf(ctx)
 	for i := 0; i < fType.NumIn(); i++ {
-		if fType.In(i) == reflect.TypeOf(&gin.Context{}) {
-			params[i] = reflect.ValueOf(ctx)
+		if fType.In(i) == valueCtx.Type() {
+			params[i] = valueCtx
 			continue
 		}
 
-		//TODO: 优化
-		var p reflect.Value
-		p, err = container.Default().Resolve(fType.In(i))
-		if err != nil || !p.IsValid() {
-			p := reflect.New(fType.In(i))
-			if len(ctx.Request.URL.Query()) > 0 {
-				err = ctx.ShouldBindQuery(p.Interface())
-				if err != nil {
-					return
-				}
-			}
-			err = ctx.ShouldBindUri(p.Interface())
-			//if err != nil {
-			//	return
-			//}
-			err = ctx.ShouldBindJSON(p.Interface())
-			if err != nil {
-				if err == io.EOF {
-					err = nil
-				} else {
-					return
-				}
-			}
-			params[i] = p.Elem()
-		} else {
-			params[i] = p
+		params[i], err = parseParam(ctx, fType.In(i))
+		if err != nil {
+			return
 		}
 	}
 
+	return
+}
+
+func parseParam(ctx *gin.Context, t reflect.Type) (p reflect.Value, err error) {
+	p, err = container.Default().Resolve(t)
+
+	if err != nil && !errors.Is(err, container.ErrNotFound) {
+		return
+	}
+
+	if err != nil || !p.IsValid() {
+		psrc := newFromType(t)
+
+		if len(ctx.Request.URL.Query()) > 0 {
+			_ = ctx.ShouldBindQuery(psrc.Interface())
+		}
+		if len(ctx.Params) > 0 {
+			_ = ctx.ShouldBindUri(psrc.Interface())
+		}
+		_ = ctx.ShouldBind(psrc.Interface())
+
+		err = binding.Validator.ValidateStruct(psrc.Interface())
+		if err != nil {
+			return
+		}
+
+		pp := reflect.New(t)
+		err = reflectx.SetValue(psrc, pp)
+		if err != nil {
+			return
+		}
+		p = pp.Elem()
+	}
+
+	return
+}
+
+func newFromType(t reflect.Type) (r reflect.Value) {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	r = reflect.New(t)
 	return
 }
 
@@ -124,7 +142,7 @@ func checkResult(ctx *gin.Context, results []reflect.Value) {
 	}
 }
 
-func response(ctx *gin.Context, results []reflect.Value) {
+func response(ctx *gin.Context, results ...reflect.Value) {
 	switch len(results) {
 	case 0:
 		Success(ctx, nil, 0)
