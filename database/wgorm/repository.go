@@ -9,13 +9,21 @@ import (
 
 func WithM2E[PO any, Entity any](f func(dst *Entity, src *PO) error) func(*Repository[PO, Entity]) {
 	return func(r *Repository[PO, Entity]) {
-		r.m2e = f
+		if f == nil {
+			r.m2e = defaultM2E[PO, Entity]
+		} else {
+			r.m2e = f
+		}
 	}
 }
 
 func WithE2M[PO any, Entity any](f func(dst *PO, src *Entity) error) func(*Repository[PO, Entity]) {
 	return func(r *Repository[PO, Entity]) {
-		r.e2m = f
+		if f == nil {
+			r.e2m = defaultE2M[PO, Entity]
+		} else {
+			r.e2m = f
+		}
 	}
 }
 
@@ -49,11 +57,27 @@ type Repository[PO any, Entity any] struct {
 	e2m func(dst *PO, src *Entity) error
 }
 
+func (r *Repository[PO, Entity]) _e2m(dst *PO, src *Entity) (err error) {
+	if r.e2m != nil {
+		return r.e2m(dst, src)
+	} else {
+		return defaultE2M(dst, src)
+	}
+}
+
+func (r *Repository[PO, Entity]) _m2e(dst *Entity, src *PO) (err error) {
+	if r.m2e != nil {
+		return r.m2e(dst, src)
+	} else {
+		return defaultM2E(dst, src)
+	}
+}
+
 func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
 	pos := make([]*PO, 0, len(entities))
 	for _, item := range entities {
 		po := new(PO)
-		err = r.e2m(po, item)
+		err = r._e2m(po, item)
 		if err != nil {
 			return
 		}
@@ -66,7 +90,7 @@ func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
 	}
 
 	for index, item := range pos {
-		err = r.m2e(entities[index], item)
+		err = r._m2e(entities[index], item)
 		if err != nil {
 			return
 		}
@@ -79,7 +103,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 	switch x := entity.(type) {
 	case *Entity:
 		po := new(PO)
-		err = r.e2m(po, x)
+		err = r._e2m(po, x)
 		if err != nil {
 			return
 		}
@@ -87,7 +111,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 		if err != nil {
 			return
 		}
-		err = r.m2e(x, po)
+		err = r._m2e(x, po)
 		if err != nil {
 			return
 		}
@@ -117,7 +141,7 @@ func (r *Repository[PO, Entity]) Delete(conditions ...database.Condition) (err e
 	return
 }
 
-func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity Entity, err error) {
+func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity *Entity, err error) {
 	db, err := applyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
@@ -129,11 +153,12 @@ func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity
 		return
 	}
 
-	err = r.m2e(&entity, po)
+	entity = new(Entity)
+	err = r._m2e(entity, po)
 	return
 }
 
-func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []Entity, err error) {
+func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []*Entity, err error) {
 	db, err := applyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
@@ -145,20 +170,20 @@ func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []
 		return
 	}
 
-	list = make([]Entity, 0, len(poList))
+	list = make([]*Entity, 0, len(poList))
 	for _, item := range poList {
 		var dst Entity
-		err = r.m2e(&dst, &item)
+		err = r._m2e(&dst, &item)
 		if err != nil {
 			return
 		}
-		list = append(list, dst)
+		list = append(list, &dst)
 	}
 
 	return
 }
 
-func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...database.Condition) (total int64, list []Entity, err error) {
+func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...database.Condition) (total int64, list []*Entity, err error) {
 	db, err := applyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
@@ -174,31 +199,31 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...dat
 		return
 	}
 
-	list = make([]Entity, 0, len(poList))
+	list = make([]*Entity, 0, len(poList))
 	for _, item := range poList {
 		var dst Entity
-		err = r.m2e(&dst, &item)
+		err = r._m2e(&dst, &item)
 		if err != nil {
 			return
 		}
-		list = append(list, dst)
+		list = append(list, &dst)
 	}
 
 	return
 }
 
-func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity, *gorm.DB], list []Entity) error) (err error) {
+func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity, *gorm.DB], list []*Entity) error) (err error) {
 	return r.TransactionTx(func(tx *gorm.DB) (err error) {
 		var list []PO
 		return tx.FindInBatches(&list, batchSize, func(tx *gorm.DB, batch int) (err error) {
-			entities := make([]Entity, 0, len(list))
+			entities := make([]*Entity, 0, len(list))
 			for _, item := range list {
 				var dst Entity
-				err = r.m2e(&dst, &item)
+				err = r._m2e(&dst, &item)
 				if err != nil {
 					return
 				}
-				entities = append(entities, dst)
+				entities = append(entities, &dst)
 			}
 			repo := NewRepository[PO, Entity](tx, WithE2M(r.e2m), WithM2E(r.m2e))
 			err = callback(repo, entities)
