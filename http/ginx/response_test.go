@@ -1,0 +1,61 @@
+package ginx
+
+import (
+	"errors"
+	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/stretchr/testify/require"
+	"github.com/zeddy-go/zeddy/errx"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func do(resp *JsonResponse) (response *httptest.ResponseRecorder) {
+	r := gin.Default()
+	r.GET("/test", func(c *gin.Context) {
+		resp.Do(c)
+	})
+
+	response = httptest.NewRecorder()
+	request := httptest.NewRequest("GET", "/test", nil)
+	r.ServeHTTP(response, request)
+	return
+}
+
+func TestJsonResponse(t *testing.T) {
+	r := do(NewJsonResponse(nil, nil, nil))
+	require.Equal(t, 204, r.Code)
+
+	r = do(NewJsonResponse(gin.H{"test": true}, nil, nil))
+	require.Equal(t, 200, r.Code)
+	require.Equal(t, `{"data":{"test":true},"message":""}`, r.Body.String())
+
+	r = do(NewJsonResponse(gin.H{"test": true}, &Meta{Total: 1}, nil))
+	require.Equal(t, 200, r.Code)
+	require.Equal(t, `{"data":{"test":true},"message":"","meta":{"total":1}}`, r.Body.String())
+
+	r = do(NewJsonResponse(gin.H{"test": true}, &Meta{Total: 1}, errors.New("test")))
+	require.Equal(t, http.StatusInternalServerError, r.Code)
+	require.Equal(t, `{"data":null,"message":"test"}`, r.Body.String())
+
+	r = do(NewJsonResponse(nil, nil, errors.New("test")))
+	require.Equal(t, http.StatusInternalServerError, r.Code)
+	require.Equal(t, `{"data":null,"message":"test"}`, r.Body.String())
+
+	r = do(NewJsonResponse(nil, nil, errx.New("test", errx.WithCode(5000))))
+	require.Equal(t, http.StatusInternalServerError, r.Code)
+	require.Equal(t, `{"data":null,"message":"test"}`, r.Body.String())
+
+	r = do(NewJsonResponse(nil, nil, errx.New("test", errx.WithCode(400))))
+	require.Equal(t, http.StatusBadRequest, r.Code)
+	require.Equal(t, `{"data":null,"message":"test"}`, r.Body.String())
+
+	type a struct {
+		A int `json:"a" binding:"required"`
+		B int `json:"b" binding:"required"`
+	}
+	r = do(NewJsonResponse(nil, nil, binding.Validator.ValidateStruct(&a{})))
+	require.Equal(t, http.StatusUnprocessableEntity, r.Code)
+	require.Equal(t, `{"data":null,"message":"Key: 'a.A' Error:Field validation for 'A' failed on the 'required' tag\nKey: 'a.B' Error:Field validation for 'B' failed on the 'required' tag"}`, r.Body.String())
+}

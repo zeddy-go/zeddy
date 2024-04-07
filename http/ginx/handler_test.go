@@ -3,6 +3,7 @@ package ginx
 import (
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"reflect"
@@ -83,4 +84,38 @@ func TestReflectOfParams(t *testing.T) {
 	a := func(a int, b string) {}
 
 	fmt.Printf("%+v\n", reflect.TypeOf(a).In(1).Name())
+}
+
+func TestResponse(t *testing.T) {
+	r := response().(*JsonResponse)
+	require.Nil(t, r.err)
+	require.Nil(t, r.response)
+
+	r = response(reflect.ValueOf(errors.New("test"))).(*JsonResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.response)
+
+	r = response(reflect.ValueOf(gin.H{"test": true})).(*JsonResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.response)
+	require.NotNil(t, r.response.Data)
+
+	r = response(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*JsonResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.response)
+	require.NotNil(t, r.response.Data)
+
+	r = response(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*JsonResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.response)
+
+	r = response(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*JsonResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.response)
+
+	r = response(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*JsonResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.response)
+	require.NotNil(t, r.response.Data)
+	require.NotNil(t, r.response.Meta)
 }

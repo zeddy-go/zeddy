@@ -12,6 +12,7 @@ const (
 	ErrStack InfoKey = "errStack"
 	Code     InfoKey = "code"
 	Detail   InfoKey = "detail"
+	Abort    InfoKey = "abort"
 )
 
 var reserveKeys = []InfoKey{
@@ -22,6 +23,7 @@ var reserveKeys = []InfoKey{
 	ErrStack,
 	Code,
 	Detail,
+	Abort,
 }
 
 func (d InfoKey) IsReserved() bool {

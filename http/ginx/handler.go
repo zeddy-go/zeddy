@@ -53,13 +53,13 @@ func GinHandler(f any) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		params, err := buildParams(fType, ctx)
 		if err != nil {
-			response(ctx, reflect.ValueOf(err))
+			response(reflect.ValueOf(err)).Do(ctx)
 			return
 		}
 
 		results := reflect.ValueOf(f).Call(params)
 
-		response(ctx, results...)
+		response(results...).Do(ctx)
 	}
 }
 
@@ -142,36 +142,32 @@ func checkResult(ctx *gin.Context, results []reflect.Value) {
 	}
 }
 
-func response(ctx *gin.Context, results ...reflect.Value) {
+func response(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 	switch len(results) {
 	case 0:
-		Success(ctx, nil, 0)
-		return
+		resp = NewJsonResponse(nil, nil, nil)
 	case 1:
 		r := results[0].Interface()
 		if r == nil {
-			ctx.JSON(http.StatusNoContent, nil)
-			return
+			resp = NewJsonResponse(nil, nil, nil)
+			break
 		}
 		switch x := r.(type) {
 		case error:
-			Error(ctx, x, 0)
+			resp = NewJsonResponse(nil, nil, x)
 		default:
-			Success(ctx, r, 0)
+			resp = NewJsonResponse(r, nil, nil)
 		}
-		return
 	case 2:
 		if results[1].IsValid() && !results[1].IsNil() {
-			Error(ctx, results[1].Interface().(error), 0)
-			return
+			resp = NewJsonResponse(nil, nil, results[1].Interface().(error))
+			break
 		}
-
-		Success(ctx, results[0].Interface(), 0)
-		return
+		resp = NewJsonResponse(results[0].Interface(), nil, nil)
 	case 3:
 		if results[2].IsValid() && !results[2].IsNil() {
-			Error(ctx, results[2].Interface().(error), 0)
-			return
+			resp = NewJsonResponse(nil, nil, results[2].Interface().(error))
+			break
 		}
 
 		if isNumber(results[0]) {
@@ -179,18 +175,15 @@ func response(ctx *gin.Context, results ...reflect.Value) {
 			if err != nil {
 				panic(err)
 			}
-			Pagination(ctx, results[1].Interface(), tmp.Interface().(int))
+			resp = NewJsonResponse(results[1].Interface(), &Meta{Total: uint(tmp.Interface().(int))}, nil)
 		} else if m, ok := results[0].Interface().(IMeta); ok {
-			resp := &Response{
-				Data: results[1].Interface(),
-				Meta: m.GetMeta(),
-			}
-
-			Json(ctx, resp, http.StatusOK, false)
+			resp = NewJsonResponse(results[1].Interface(), m, nil)
 		} else {
 			panic(errors.New("three results only for pagination"))
 		}
 	}
+
+	return
 }
 
 func isNumber(v interface{ Kind() reflect.Kind }) bool {

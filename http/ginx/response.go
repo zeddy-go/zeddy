@@ -3,6 +3,7 @@ package ginx
 import (
 	"errors"
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	"github.com/zeddy-go/zeddy/errx"
 	"gorm.io/gorm"
 	"log/slog"
@@ -168,4 +169,66 @@ func Json(ctx *gin.Context, data interface{}, status int, abort bool) {
 	} else {
 		ctx.JSON(status, data)
 	}
+}
+
+func NewJsonResponse(data any, meta IMeta, err error) *JsonResponse {
+	resp := &JsonResponse{
+		err: err,
+	}
+	if data != nil || meta != nil {
+		rr := &Response{}
+		if data != nil {
+			rr.Data = data
+		}
+		if meta != nil {
+			rr.Meta = meta.GetMeta()
+		}
+		resp.response = rr
+	}
+
+	return resp
+}
+
+type JsonResponse struct {
+	err      error
+	response *Response
+}
+
+func (r *JsonResponse) Do(ctx *gin.Context) {
+	if r.err != nil {
+		var abort bool
+		var data any
+		message := r.err.Error()
+		status := http.StatusInternalServerError
+		if x, ok := r.err.(*errx.Errx); ok && http.StatusText(errx.GetErrxField[int](x, errx.Code)) != "" {
+			status = errx.GetErrxField[int](x, errx.Code)
+			abort = errx.GetErrxField[bool](x, errx.Abort)
+		} else if _, ok := r.err.(validator.ValidationErrors); ok {
+			status = http.StatusUnprocessableEntity
+			//TODO: i18n and detail
+		} else if errors.Is(r.err, gorm.ErrRecordNotFound) {
+			status = http.StatusNotFound
+		}
+		r.response = &Response{
+			Message: message,
+			Data:    data,
+		}
+		if abort {
+			ctx.AbortWithStatusJSON(status, r.response)
+		} else {
+			ctx.JSON(status, r.response)
+		}
+		return
+	}
+
+	if r.response == nil || r.response.Data == nil {
+		ctx.JSON(http.StatusNoContent, nil)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, r.response)
+}
+
+type IResponse[CTX any] interface {
+	Do(CTX)
 }
