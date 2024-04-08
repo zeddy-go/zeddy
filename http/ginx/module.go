@@ -34,7 +34,7 @@ func WithAddr(addr string) func(*Module) {
 func NewModule(sets ...func(*Module)) *Module {
 	m := &Module{
 		BaseModule: module.NewBaseModule("ginx"),
-		addr:       ":80",
+		addr:       ":8080",
 		subModules: make([]contract.IModule, 0),
 	}
 
