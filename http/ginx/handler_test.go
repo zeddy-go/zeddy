@@ -1,7 +1,6 @@
 package ginx
 
 import (
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -10,17 +9,6 @@ import (
 	"strings"
 	"testing"
 )
-
-func a(m IMeta) IMeta {
-	return nil
-}
-
-func TestXxx(t *testing.T) {
-
-	mt := reflect.TypeOf(a)
-
-	println(mt.Out(0).Name())
-}
 
 func TestContext(t *testing.T) {
 	c := &gin.Context{
@@ -78,12 +66,6 @@ func TestParse2(t *testing.T) {
 	r.ServeHTTP(w, request)
 
 	require.Equal(t, 200, w.Code)
-}
-
-func TestReflectOfParams(t *testing.T) {
-	a := func(a int, b string) {}
-
-	fmt.Printf("%+v\n", reflect.TypeOf(a).In(1).Name())
 }
 
 func TestResponse(t *testing.T) {

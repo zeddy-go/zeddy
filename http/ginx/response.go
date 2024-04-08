@@ -1,11 +1,11 @@
 package ginx
 
 import (
-	"encoding/json"
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
 	"github.com/zeddy-go/zeddy/errx"
+	"github.com/zeddy-go/zeddy/reflectx"
 	"gorm.io/gorm"
 	"net/http"
 )
@@ -62,6 +62,30 @@ type IFile interface {
 	Content() []byte
 }
 
+func NewFileResponse(file IFile) *FileResponse {
+	return &FileResponse{
+		file: file,
+	}
+}
+
+type FileResponse struct {
+	file IFile
+}
+
+func (r *FileResponse) Do(ctx *gin.Context) {
+	ctx.Status(http.StatusOK)
+	if r.file.MimeType() != "" {
+		ctx.Writer.Header().Add("Content-Type", r.file.MimeType())
+	} else {
+		ctx.Writer.Header().Add("Content-Type", "application/octet-stream")
+	}
+	if r.file.Name() != "" {
+		ctx.Writer.Header().Add("Content-Disposition", "attachment; filename=\""+r.file.Name()+"\"")
+	}
+	_, _ = ctx.Writer.Write(r.file.Content())
+	return
+}
+
 type IMeta interface {
 	GetMeta() map[string]any
 }
@@ -75,13 +99,21 @@ type Meta struct {
 }
 
 func (m *Meta) GetMeta() (result map[string]any) {
-	s, err := json.Marshal(m)
-	if err != nil {
-		panic(err)
+	result = make(map[string]any)
+	if m.Code != 0 {
+		result["code"] = m.Code
 	}
-	err = json.Unmarshal(s, &result)
-	if err != nil {
-		panic(err)
+	if m.CurrentPage != 0 {
+		result["currentPage"] = m.CurrentPage
+	}
+	if m.Total != 0 {
+		result["total"] = m.Total
+	}
+	if m.LastPage != 0 {
+		result["lastPage"] = m.LastPage
+	}
+	if m.PerPage != 0 {
+		result["perPage"] = m.PerPage
 	}
 	return
 }
@@ -98,6 +130,9 @@ type ResponseWithCode struct {
 }
 
 func NewAllOkStatusJsonResponse(data any, meta IMeta, err error) IResponse[*gin.Context] {
+	if x, ok := data.(IFile); ok {
+		return NewFileResponse(x)
+	}
 	resp := &AllOkStatusJsonResponse{
 		Err: err,
 		Response: &ResponseWithCode{
@@ -111,7 +146,11 @@ func NewAllOkStatusJsonResponse(data any, meta IMeta, err error) IResponse[*gin.
 	if meta != nil {
 		resp.Response.Meta = meta.GetMeta()
 		if code, ok := resp.Response.Meta["code"]; ok {
-			resp.Response.Code = int(code.(float64))
+			var e error
+			resp.Response.Code, e = reflectx.ConvertTo[int](code)
+			if err != nil {
+				panic(e)
+			}
 			delete(resp.Response.Meta, "code")
 		}
 	}
@@ -164,6 +203,9 @@ func (r *AllOkStatusJsonResponse) Do(ctx *gin.Context) {
 }
 
 func NewJsonResponse(data any, meta IMeta, err error) IResponse[*gin.Context] {
+	if x, ok := data.(IFile); ok {
+		return NewFileResponse(x)
+	}
 	resp := &JsonResponse{
 		Err: err,
 	}

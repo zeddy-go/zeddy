@@ -60,6 +60,21 @@ func TestJsonResponse(t *testing.T) {
 	require.Equal(t, `{"data":null,"message":"Key: 'a.A' Error:Field validation for 'A' failed on the 'required' tag\nKey: 'a.B' Error:Field validation for 'B' failed on the 'required' tag"}`, r.Body.String())
 }
 
+func TestFileResponse(t *testing.T) {
+	content := []byte{1, 2, 3, 4}
+	r := do(NewFileResponse(NewFile(content)))
+	require.Equal(t, http.StatusOK, r.Code)
+	require.Equal(t, content, r.Body.Bytes())
+	require.Equal(t, "application/octet-stream", r.Header().Get("Content-Type"))
+	require.Equal(t, "", r.Header().Get("Content-Disposition"))
+
+	r = do(NewFileResponse(NewFile(content, WithFileName("test.jpg"), WithMimeType("images/jpeg"))))
+	require.Equal(t, http.StatusOK, r.Code)
+	require.Equal(t, content, r.Body.Bytes())
+	require.Equal(t, "images/jpeg", r.Header().Get("Content-Type"))
+	require.Equal(t, "attachment; filename=\"test.jpg\"", r.Header().Get("Content-Disposition"))
+}
+
 func TestAllOkStatusResponse(t *testing.T) {
 	r := do(NewAllOkStatusJsonResponse(nil, nil, nil))
 	require.Equal(t, http.StatusOK, r.Code)
