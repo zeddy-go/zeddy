@@ -3,8 +3,8 @@ package grpc
 import (
 	"fmt"
 	"github.com/spf13/viper"
+	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
-	"github.com/zeddy-go/zeddy/contract"
 	"github.com/zeddy-go/zeddy/errx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -14,20 +14,17 @@ import (
 	"net"
 )
 
-func NewModule(prefix string) contract.IModule {
+func NewModule(prefix string) app.Module {
 	return &Module{
 		prefix: prefix,
 	}
 }
 
 type Module struct {
+	app.IsModule
 	grpcServer *grpc.Server
 	prefix     string
 	c          *viper.Viper
-}
-
-func (m *Module) Name() string {
-	return "grpc"
 }
 
 func (m *Module) Init() (err error) {

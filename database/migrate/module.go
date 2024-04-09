@@ -2,21 +2,19 @@ package migrate
 
 import (
 	"github.com/spf13/viper"
+	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/database"
-	"github.com/zeddy-go/zeddy/module"
 )
 
 func NewModule() *Module {
-	m := &Module{
-		BaseModule: module.NewBaseModule("migrate"),
-	}
+	m := &Module{}
 
 	return m
 }
 
 type Module struct {
-	*module.BaseModule
+	app.IsModule
 }
 
 func (m Module) Init() (err error) {

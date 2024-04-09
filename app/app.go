@@ -2,14 +2,13 @@ package app
 
 import (
 	"github.com/zeddy-go/zeddy/container"
-	"github.com/zeddy-go/zeddy/contract"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 )
 
-var moduleList = make([]contract.IModule, 0)
+var moduleList = make([]Module, 0)
 
 var beforeWaits = make([]any, 0)
 
@@ -18,13 +17,13 @@ func BeforeWaits(funcs ...any) {
 	beforeWaits = append(beforeWaits, funcs...)
 }
 
-func Use(modules ...contract.IModule) {
+func Use(modules ...Module) {
 	moduleList = append(moduleList, modules...)
 }
 
 func Boot() (err error) {
 	for _, module := range moduleList {
-		if m, ok := module.(contract.IShouldInit); ok {
+		if m, ok := module.(Initable); ok {
 			err = m.Init()
 			if err != nil {
 				return
@@ -33,7 +32,7 @@ func Boot() (err error) {
 	}
 
 	for _, module := range moduleList {
-		if m, ok := module.(contract.IShouldBoot); ok {
+		if m, ok := module.(Bootable); ok {
 			err = m.Boot()
 			if err != nil {
 				return
@@ -46,7 +45,7 @@ func Boot() (err error) {
 
 func Start() (n int) {
 	for _, m := range moduleList {
-		if module, ok := m.(contract.IStartable); ok {
+		if module, ok := m.(Startable); ok {
 			go module.Start()
 			n++
 		}
@@ -57,7 +56,7 @@ func Start() (n int) {
 
 func Stop() {
 	for _, m := range moduleList {
-		if module, ok := m.(contract.IStopable); ok {
+		if module, ok := m.(Stopable); ok {
 			go module.Stop()
 		}
 	}

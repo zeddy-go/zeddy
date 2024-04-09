@@ -188,7 +188,11 @@ func (c *Client) Post(uri string, body any) (resp *Response, err error) {
 	resp, err = c.Do(req)
 
 	if c.debug {
-		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		if resp == nil {
+			slog.Debug("request debug", "request", req.Info(), "response", nil)
+		} else {
+			slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		}
 	}
 
 	return
@@ -212,7 +216,11 @@ func (c *Client) Put(uri string, body any) (resp *Response, err error) {
 	resp, err = c.Do(req)
 
 	if c.debug {
-		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		if resp == nil {
+			slog.Debug("request debug", "request", req.Info(), "response", nil)
+		} else {
+			slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		}
 	}
 
 	return
@@ -232,7 +240,11 @@ func (c *Client) Delete(uri string) (resp *Response, err error) {
 	resp, err = c.Do(req)
 
 	if c.debug {
-		slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		if resp == nil {
+			slog.Debug("request debug", "request", req.Info(), "response", nil)
+		} else {
+			slog.Debug("request debug", "request", req.Info(), "response", resp.Info())
+		}
 	}
 
 	return

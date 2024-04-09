@@ -5,9 +5,9 @@ package wgorm
 import (
 	"github.com/sony/sonyflake"
 	"github.com/spf13/viper"
+	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/database"
-	"github.com/zeddy-go/zeddy/module"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -17,14 +17,12 @@ import (
 )
 
 func NewModule() *Module {
-	m := &Module{
-		BaseModule: module.NewBaseModule("wgorm"),
-	}
+	m := &Module{}
 	return m
 }
 
 type Module struct {
-	*module.BaseModule
+	app.IsModule
 }
 
 func (m *Module) Init() (err error) {
