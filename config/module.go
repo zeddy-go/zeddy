@@ -2,6 +2,7 @@ package config
 
 import (
 	"github.com/spf13/viper"
+	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
 	"io"
 	"log/slog"
@@ -39,12 +40,9 @@ func NewModule(opts ...func(*Module)) *Module {
 }
 
 type Module struct {
+	app.IsModule
 	config string
 	path   string
-}
-
-func (m Module) Name() string {
-	return "config"
 }
 
 func (m Module) Init() (err error) {
