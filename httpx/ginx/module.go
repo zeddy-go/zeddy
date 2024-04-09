@@ -1,6 +1,7 @@
 package ginx
 
 import (
+	"github.com/spf13/viper"
 	"github.com/zeddy-go/zeddy/app"
 	"log/slog"
 	"net/http"
@@ -16,27 +17,12 @@ func WithCustomEngine(e *gin.Engine) func(*Module) {
 	}
 }
 
-func WithLts(certFile string, keyFile string) func(*Module) {
-	return func(module *Module) {
-		module.lts = true
-		module.certFile = certFile
-		module.keyFile = keyFile
-	}
-}
-
-func WithAddr(addr string) func(*Module) {
-	return func(module *Module) {
-		module.addr = addr
-	}
-}
-
-func NewModule(sets ...func(*Module)) *Module {
+func NewModule(opts ...func(*Module)) *Module {
 	m := &Module{
-		addr:       ":8080",
 		subModules: make([]app.Module, 0),
 	}
 
-	for _, set := range sets {
+	for _, set := range opts {
 		set(m)
 	}
 
@@ -49,11 +35,8 @@ func NewModule(sets ...func(*Module)) *Module {
 
 type Module struct {
 	app.IsModule
+	prefix     string
 	router     gin.IRouter
-	addr       string
-	lts        bool
-	certFile   string
-	keyFile    string
 	subModules []app.Module
 }
 
@@ -143,14 +126,21 @@ func (m *Module) wrap(handler any, middlewares ...any) (handlers []gin.HandlerFu
 }
 
 func (m *Module) Start() {
-	svr := http.Server{
-		Addr:    m.addr,
-		Handler: m.router.(http.Handler),
+	var c *viper.Viper
+	if m.prefix != "" {
+		c = viper.Sub(m.prefix)
+	} else {
+		c = viper.GetViper()
 	}
 
+	svr := http.Server{
+		Handler: m.router.(http.Handler),
+	}
+	svr.Addr = c.GetString("addr")
+
 	var err error
-	if m.lts {
-		err = svr.ListenAndServeTLS(m.certFile, m.keyFile)
+	if c.GetBool("lts") {
+		err = svr.ListenAndServeTLS(c.GetString("certFile"), c.GetString("keyFile"))
 	} else {
 		err = svr.ListenAndServe()
 	}

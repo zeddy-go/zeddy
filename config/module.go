@@ -46,25 +46,24 @@ type Module struct {
 }
 
 func (m Module) Init() (err error) {
-	c := viper.New()
-	c.SetConfigType("yaml")
+	viper.SetConfigType("yaml")
 
 	if m.path != "" {
 		m.config = readConfig(m.path)
 	}
 
-	err = c.ReadConfig(strings.NewReader(m.config))
+	err = viper.ReadConfig(strings.NewReader(m.config))
 	if err != nil {
 		return
 	}
-	c.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
-	c.AutomaticEnv()
-	err = container.Bind[*viper.Viper](c, container.AsSingleton())
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "__"))
+	viper.AutomaticEnv()
+	err = container.Bind[*viper.Viper](viper.GetViper)
 	if err != nil {
 		return
 	}
 
-	setLog(c)
+	setLog(viper.GetViper())
 
 	return
 }

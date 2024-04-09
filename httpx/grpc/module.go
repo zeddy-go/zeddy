@@ -1,7 +1,6 @@
 package grpc
 
 import (
-	"fmt"
 	"github.com/spf13/viper"
 	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
@@ -14,27 +13,30 @@ import (
 	"net"
 )
 
-func NewModule(prefix string) app.Module {
-	return &Module{
-		prefix: prefix,
+func WithPrefix(prefix string) func(*Module) {
+	return func(module *Module) {
+		module.prefix = prefix
 	}
+}
+
+func NewModule(opts ...func(*Module)) *Module {
+	m := &Module{
+		prefix: "grpc",
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
 }
 
 type Module struct {
 	app.IsModule
 	grpcServer *grpc.Server
 	prefix     string
-	c          *viper.Viper
 }
 
 func (m *Module) Init() (err error) {
-	m.c, err = container.Resolve[*viper.Viper]()
-	if err != nil {
-		return
-	}
-	if m.prefix != "" {
-		m.c = m.c.Sub(m.prefix)
-	}
+	c := viper.Sub(m.prefix)
 
 	m.grpcServer = grpc.NewServer(
 		grpc.UnaryInterceptor(simpleInterceptor),
@@ -48,7 +50,7 @@ func (m *Module) Init() (err error) {
 		return
 	}
 
-	if m.c.GetBool("reflection") {
+	if c.GetBool("reflection") {
 		reflection.Register(m.grpcServer)
 	}
 
@@ -61,8 +63,10 @@ func (m *Module) Init() (err error) {
 }
 
 func (m *Module) Start() {
+	c := viper.Sub(m.prefix)
+
 	var lis net.Listener
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", m.c.GetInt("port")))
+	lis, err := net.Listen("tcp", c.GetString("addr"))
 	if err != nil {
 		panic(errx.Wrap(err, "tcp listen port failed"))
 	}
