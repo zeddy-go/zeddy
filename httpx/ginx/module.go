@@ -70,6 +70,7 @@ func (m *Module) Register(subs ...app.Module) (err error) {
 			}
 		}
 	}
+	return
 }
 
 func (m *Module) Init() (err error) {
