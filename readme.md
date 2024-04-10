@@ -1,7 +1,8 @@
 # zeddy
 
+[![Go](https://github.com/zeddy-go/zeddy/actions/workflows/go.yml/badge.svg)](https://github.com/zeddy-go/zeddy/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/zeddy-go/zeddy)](https://goreportcard.com/report/github.com/zeddy-go/zeddy)
-[![codecov](https://codecov.io/gh/zeddy-go/zeddy/branch/master/graph/badge.svg)](https://codecov.io/gh/zeddy-go/zeddy)
+[![codecov](https://codecov.io/gh/zeddy-go/zeddy/graph/badge.svg?token=3RXOZWLIWY)](https://codecov.io/gh/zeddy-go/zeddy)
 
 zeddy是一个高效、模块化的GO开发框架，它通过清晰的目录结构和组件划分来组织代码。
 框架内置了配置管理、环境变量支持、依赖注入等核心功能，同时允许开发者根据需要进行定制。
