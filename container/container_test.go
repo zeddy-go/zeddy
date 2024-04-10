@@ -112,4 +112,32 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.True(t, ok)
 		require.Equal(t, 1, test.A)
 	})
+
+	t.Run("test bind object", func(t *testing.T) {
+		testStruct := &Test{}
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(any(testStruct))))
+
+		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		require.Nil(t, err)
+
+		test, ok := tmp.Interface().(*Test)
+		require.True(t, ok)
+
+		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+	})
+
+	t.Run("test bind func", func(t *testing.T) {
+		testFunc := func(in string) (out string) {
+			return in
+		}
+		require.NoError(t, c.Bind(reflect.TypeOf(testFunc), reflect.ValueOf(testFunc)))
+
+		tmp, err := c.Resolve(reflect.TypeOf(testFunc))
+		require.Nil(t, err)
+
+		test, ok := tmp.Interface().(func(string) string)
+		require.True(t, ok)
+
+		require.Equal(t, "1", test("1"))
+	})
 }

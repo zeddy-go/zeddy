@@ -34,6 +34,8 @@ type bindOpts struct {
 	Singleton bool
 }
 
+// AsSingleton enable singleton mode
+// Deprecated: singleton mode is now default enabled
 func AsSingleton() func(*bindOpts) {
 	return func(opts *bindOpts) {
 		opts.Singleton = true
@@ -54,14 +56,55 @@ func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bind
 		opt(options)
 	}
 
-	if t == value.Type() || (t.Kind() == reflect.Interface && value.Type().Implements(t)) {
+	delete(c.instances, t)
+	if canBindConsistent(t, value) {
 		c.bindConsistent(t, value, options)
-	} else {
-		delete(c.instances, t)
+	} else if canBindProvider(t, value) {
 		err = c.bindProvider(t, value, options)
+	} else {
+		err = errx.New(fmt.Sprintf("can not bind <%s> to <%s>", value.Type(), t))
 	}
 
 	return
+}
+
+// canBindProvider
+func canBindProvider(t reflect.Type, value reflect.Value) bool {
+	if value.Kind() != reflect.Func {
+		return false
+	}
+
+	if value.Type().NumOut() <= 0 {
+		return false
+	}
+
+	resultType := value.Type().Out(0)
+
+	if t == resultType {
+		return true
+	}
+
+	if resultType.ConvertibleTo(t) {
+		return true
+	}
+
+	if t.Kind() == reflect.Interface && resultType.Implements(t) {
+		return true
+	}
+
+	return false
+}
+
+func canBindConsistent(t reflect.Type, value reflect.Value) bool {
+	if t == value.Type() {
+		return true
+	}
+
+	if t.Kind() == reflect.Interface && value.Type().Implements(t) {
+		return true
+	}
+
+	return false
 }
 
 func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
