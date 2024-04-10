@@ -113,7 +113,7 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.Equal(t, 1, test.A)
 	})
 
-	t.Run("test bind object", func(t *testing.T) {
+	t.Run("test bind instance", func(t *testing.T) {
 		testStruct := &Test{}
 		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(any(testStruct))))
 
@@ -139,5 +139,80 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.True(t, ok)
 
 		require.Equal(t, "1", test("1"))
+	})
+
+	t.Run("test bind value", func(t *testing.T) {
+		testStruct := Test{}
+		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(any(testStruct)))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "can not bind <container.Test> to <*container.Test>")
+	})
+
+	t.Run("test bind value no singleton", func(t *testing.T) {
+		testStruct := &Test{}
+		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testStruct), NoSingleton())
+		require.NoError(t, err)
+
+		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		require.Nil(t, err)
+
+		test, ok := tmp.Interface().(*Test)
+		require.True(t, ok)
+
+		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+
+		testStruct = test
+
+		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
+		require.Nil(t, err)
+
+		test, ok = tmp.Interface().(*Test)
+		require.True(t, ok)
+
+		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+	})
+
+	t.Run("test bind error1", func(t *testing.T) {
+		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(func() {}))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "can not bind <func()> to <*container.Test>")
+	})
+
+	t.Run("test bind convertable", func(t *testing.T) {
+		type myTest Test
+		test := &Test{}
+		err := c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(test))
+		require.NoError(t, err)
+
+		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		require.Nil(t, err)
+
+		testStruct, ok := tmp.Interface().(*myTest)
+		require.True(t, ok)
+
+		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+	})
+
+	t.Run("test bind convertable not singleton", func(t *testing.T) {
+		type myTest Test
+		test := &Test{}
+		err := c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(test), NoSingleton())
+		require.NoError(t, err)
+
+		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		require.Nil(t, err)
+
+		testStruct, ok := tmp.Interface().(*myTest)
+		require.True(t, ok)
+
+		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+
+		tmp, err = c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		require.Nil(t, err)
+
+		testStruct2, ok := tmp.Interface().(*myTest)
+		require.True(t, ok)
+
+		require.NotEqual(t, fmt.Sprintf("%p", testStruct), fmt.Sprintf("%p", testStruct2))
 	})
 }

@@ -88,10 +88,6 @@ func canBindProvider(t reflect.Type, value reflect.Value) bool {
 		return true
 	}
 
-	if t.Kind() == reflect.Interface && resultType.Implements(t) {
-		return true
-	}
-
 	return false
 }
 
@@ -100,7 +96,7 @@ func canBindConsistent(t reflect.Type, value reflect.Value) bool {
 		return true
 	}
 
-	if t.Kind() == reflect.Interface && value.Type().Implements(t) {
+	if value.Type().ConvertibleTo(t) {
 		return true
 	}
 
@@ -108,17 +104,6 @@ func canBindConsistent(t reflect.Type, value reflect.Value) bool {
 }
 
 func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
-	if value.Kind() != reflect.Func {
-		err = errx.Wrap(ErrCanNotBind, fmt.Sprintf("value is not a func, type <%s>", t.String()))
-		return
-	}
-
-	bindable, _ := c.isConsistent(t, value.Type().Out(0))
-	if !bindable {
-		err = errx.Wrap(ErrCanNotBind, fmt.Sprintf("type <%s>", t.String()))
-		return
-	}
-
 	c.providers[t] = &provider{
 		Value:     value,
 		Singleton: options.Singleton,
@@ -127,32 +112,8 @@ func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *b
 	return
 }
 
-func (c *Container) isConsistent(dest reflect.Type, src reflect.Type) (consistent bool, shouldConvert bool) {
-	//一致性检查:
-	// 1. 如果t是接口, 检查给定的**provider返回值或者实例**的类型是否实现了这个接口
-	// 2. 如果t是普通类型, 检查给定的**provider返回值或者实例**的类型是否等于或者可以转换成t
-	// 3. 判断按执行速度排序
-	if dest == src {
-		consistent = true
-		return
-	}
-
-	if dest.Kind() == reflect.Interface && src.Implements(dest) {
-		consistent = true
-		return
-	}
-
-	if src.ConvertibleTo(dest) {
-		consistent = true
-		shouldConvert = true
-		return
-	}
-
-	return
-}
-
 // bindConsistent 目标类型与给定值类型一致的情况
-func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options *bindOpts) {
+func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
 	//如果要绑定的类型是函数, 那就无视options中的singleton选项, 直接绑定到instances去
 	if t.Kind() == reflect.Func {
 		c.instances[t] = value
@@ -160,29 +121,34 @@ func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options 
 	}
 
 	//如果要绑定的类型不是函数, 就要判断是否为singleton, 来做合适的绑定
-	if options.Singleton && value.Kind() == reflect.Pointer {
-		c.instances[t] = value
-		return
-	}
-
-	if options.Singleton && value.Kind() != reflect.Pointer {
-		c.instances[t] = value.Addr()
-		return
-	}
-
-	if value.Kind() == reflect.Pointer {
-		c.providers[t] = &provider{
-			Value: reflect.ValueOf(func() any {
-				return reflect.New(value.Type().Elem()).Interface()
-			}),
+	if options.Singleton {
+		var tmp reflect.Value
+		tmp, err = c.convert(t, value)
+		if err != nil {
+			return
 		}
+		c.instances[t] = tmp
+		return
+	}
+
+	c.providers[t] = &provider{
+		Value: reflect.ValueOf(func() any {
+			return reflect.New(value.Type().Elem()).Interface()
+		}),
+	}
+
+	return
+}
+
+func (c *Container) convert(t reflect.Type, value reflect.Value) (result reflect.Value, err error) {
+	if t == value.Type() {
+		result = value
+	} else if value.Type().ConvertibleTo(t) {
+		result = value.Convert(t)
 	} else {
-		c.providers[t] = &provider{
-			Value: reflect.ValueOf(func() any {
-				return reflect.New(value.Type()).Elem().Interface()
-			}),
-		}
+		err = errx.New(fmt.Sprintf("can not convert <%s> to <%s>", value.Type().String(), t.String()))
 	}
+	return
 }
 
 func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
@@ -198,12 +164,7 @@ func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
 			return
 		}
 		if f.Singleton {
-			_, shouldConvert := c.isConsistent(t, f.Value.Type().Out(0))
-			if shouldConvert {
-				c.instances[t] = result.Convert(t)
-			} else {
-				c.instances[t] = result
-			}
+			c.instances[t] = result
 		}
 		return
 	}
@@ -223,15 +184,13 @@ func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (
 		return
 	}
 
-	if len(results) == 2 {
-		if !results[1].IsNil() {
-			err = results[1].Interface().(error)
-			return
-		}
+	if len(results) == 2 && !results[1].IsNil() {
+		err = results[1].Interface().(error)
+		return
 	}
 
 	if results[0].IsNil() {
-		err = ErrNotFound
+		err = errx.New("get nil result")
 		return
 	}
 
@@ -241,17 +200,7 @@ func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (
 		result = result.Elem()
 	}
 
-	consistent, shouldConvert := c.isConsistent(resultType, result.Type())
-	if !consistent {
-		err = ErrTypeNotMatch
-		return
-	}
-
-	if shouldConvert {
-		result = result.Convert(resultType)
-	}
-
-	return
+	return c.convert(resultType, result)
 }
 
 func WithParams(params map[int]any) func(*invokeOpts) {
