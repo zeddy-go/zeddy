@@ -170,7 +170,7 @@ func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
 		if f.Singleton {
 			_, shouldConvert := c.isConsistent(t, f.Value.Type().Out(0))
 			if shouldConvert {
-				c.instances[t] = reflect.ValueOf(result).Convert(t)
+				c.instances[t] = result.Convert(t)
 			} else {
 				c.instances[t] = result
 			}
