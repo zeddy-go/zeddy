@@ -57,6 +57,7 @@ func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bind
 	if t == value.Type() || (t.Kind() == reflect.Interface && value.Type().Implements(t)) {
 		c.bindConsistent(t, value, options)
 	} else {
+		delete(c.instances, t)
 		err = c.bindProvider(t, value, options)
 	}
 
@@ -79,20 +80,6 @@ func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *b
 		Value:     value,
 		Singleton: options.Singleton,
 	}
-	//if options.Singleton {
-	//	var result reflect.Value
-	//	result, err = c.invokeAndGetType(value, t)
-	//	if err != nil {
-	//		return
-	//	}
-	//	if shouldConvert {
-	//		c.instances[t] = reflect.ValueOf(result).Convert(t)
-	//	} else {
-	//		c.instances[t] = result
-	//	}
-	//} else {
-	//	c.providers[t] = value
-	//}
 
 	return
 }

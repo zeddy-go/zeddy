@@ -49,8 +49,7 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	})
 
 	t.Run("test struct ptr", func(t *testing.T) {
-		t.Parallel()
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider), NoSingleton()))
 
 		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
 		require.Nil(t, err)
@@ -70,8 +69,7 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	})
 
 	t.Run("test struct ptr singleton", func(t *testing.T) {
-		t.Parallel()
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider), AsSingleton()))
+		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
 
 		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
 		require.NoError(t, err)
@@ -89,7 +87,6 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	})
 
 	t.Run("test func", func(t *testing.T) {
-		t.Parallel()
 		var a int
 		f := func(a *int) { *a = 1 }
 		funcProvider := func() func(*int) {
