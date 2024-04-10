@@ -1,6 +1,7 @@
 package mapper
 
 import (
+	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
@@ -27,12 +28,13 @@ func TestMapper(t *testing.T) {
 
 		var bb b
 
-		NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
+		err := NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
 			if srcField == "A" {
 				return "B"
 			}
 			return srcField
 		})).Map(&bb, aa)
+		require.NoError(t, err)
 		require.Equal(t, aa.A, *bb.B)
 		require.Equal(t, aa.C, bb.C)
 	})
@@ -61,12 +63,13 @@ func TestMapper(t *testing.T) {
 
 		var bb b
 
-		NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
+		err := NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
 			if srcField == "A" {
 				return "B"
 			}
 			return srcField
 		})).Map(&bb, aa)
+		require.NoError(t, err)
 		require.Equal(t, aa.A, *bb.B)
 		require.Equal(t, aa.C, bb.C)
 	})
@@ -82,9 +85,10 @@ func TestMapper(t *testing.T) {
 
 		var bb map[string]any
 
-		NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
+		err := NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
 			return strings.ToLower(srcField)
 		})).Map(&bb, aa)
+		require.NoError(t, err)
 		require.Equal(t, aa.A, bb["a"])
 	})
 
@@ -99,9 +103,10 @@ func TestMapper(t *testing.T) {
 			"a": "1",
 		}
 
-		NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
+		err := NewSimple(WithFieldSimple(func(srcField string) (dstField string) {
 			return strings.ToUpper(srcField)
 		})).Map(&aa, bb)
+		require.NoError(t, err)
 		require.Equal(t, 1, aa.A)
 	})
 
@@ -123,7 +128,49 @@ func TestMapper(t *testing.T) {
 		var bb []b
 
 		err := NewSimple().MapSlice(&bb, aa)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.Equal(t, aa[0].A, bb[0].A)
 	})
+}
+
+type s1 struct {
+	A int
+	B string
+	C bool
+}
+
+type s2 struct {
+	A int
+	B string
+	C bool
+}
+
+func BenchmarkCopier(b *testing.B) {
+	struct1 := s1{
+		A: 1,
+		B: "2",
+		C: true,
+	}
+	for i := 0; i < b.N; i++ {
+		var struct2 s2
+		err := copier.Copy(&struct2, struct1)
+		if err != nil {
+			b.Error(err)
+		}
+	}
+}
+
+func BenchmarkSimpleMap(b *testing.B) {
+	struct1 := s1{
+		A: 1,
+		B: "2",
+		C: true,
+	}
+	for i := 0; i < b.N; i++ {
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		if err != nil {
+			b.Error(err)
+		}
+	}
 }
