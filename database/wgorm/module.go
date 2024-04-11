@@ -58,14 +58,14 @@ func (m *Module) Init() (err error) {
 		return
 	}
 
-	err = container.Bind[*DBHolder](NewDBHolder, container.AsSingleton())
+	err = container.Bind[*DBHolder](NewDBHolder)
 	if err != nil {
 		return
 	}
 
 	err = container.Bind[*sonyflake.Sonyflake](func() *sonyflake.Sonyflake {
 		return sonyflake.NewSonyflake(sonyflake.Settings{})
-	}, container.AsSingleton())
+	})
 	if err != nil {
 		return
 	}

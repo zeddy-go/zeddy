@@ -1,6 +1,9 @@
 package slicex
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 func Find[T any](f func(item T) bool, arr ...T) (result T, ok bool) {
 	if len(arr) == 0 {
@@ -72,8 +75,13 @@ func Contains[T comparable](finds any, data []T) (found bool) {
 		}
 	case T:
 		for _, item := range data {
-			if item == x {
-				found = true
+			switch x := finds.(type) {
+			case string:
+				found = strings.Contains(x, any(item).(string))
+			default:
+				found = item == x
+			}
+			if found {
 				return
 			}
 		}

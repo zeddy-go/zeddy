@@ -11,10 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
-var ApplySingle = applySingle
-var ApplyConditions = applyConditions
+// ApplySingle
+//
+// Deprecated: use ApplyCondition instead.
+var ApplySingle = ApplyCondition
 
-func applySingle(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err error) {
+func ApplyCondition(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err error) {
 	if len(c) < 2 {
 		return db, errx.New("condition require at least 2 params")
 	}
@@ -51,10 +53,10 @@ func applySingle(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err error) 
 	return
 }
 
-func applyConditions(db *gorm.DB, cs database.Conditions) (newDB *gorm.DB, err error) {
+func ApplyConditions(db *gorm.DB, cs database.Conditions) (newDB *gorm.DB, err error) {
 	newDB = db
 	for _, c := range cs {
-		newDB, err = applySingle(newDB, c)
+		newDB, err = ApplySingle(newDB, c)
 		if err != nil {
 			return
 		}

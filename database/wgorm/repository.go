@@ -118,7 +118,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 	case map[string]any:
 		query := r.GetDB()
 		if len(conditions) > 0 {
-			query, err = applyConditions(query, conditions)
+			query, err = ApplyConditions(query, conditions)
 			if err != nil {
 				return
 			}
@@ -132,7 +132,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 }
 
 func (r *Repository[PO, Entity]) Delete(conditions ...database.Condition) (err error) {
-	db, err := applyConditions(r.GetDB(), conditions)
+	db, err := ApplyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
 	}
@@ -142,7 +142,7 @@ func (r *Repository[PO, Entity]) Delete(conditions ...database.Condition) (err e
 }
 
 func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity *Entity, err error) {
-	db, err := applyConditions(r.GetDB(), conditions)
+	db, err := ApplyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
 	}
@@ -159,7 +159,7 @@ func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity
 }
 
 func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []*Entity, err error) {
-	db, err := applyConditions(r.GetDB(), conditions)
+	db, err := ApplyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
 	}
@@ -184,7 +184,7 @@ func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []
 }
 
 func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...database.Condition) (total int64, list []*Entity, err error) {
-	db, err := applyConditions(r.GetDB(), conditions)
+	db, err := ApplyConditions(r.GetDB(), conditions)
 	if err != nil {
 		return
 	}
