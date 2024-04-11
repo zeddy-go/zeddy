@@ -2,7 +2,6 @@ package wgorm
 
 import (
 	"github.com/stretchr/testify/require"
-	"github.com/zeddy-go/zeddy/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils/tests"
 	"testing"
@@ -14,7 +13,7 @@ func TestCondition(t *testing.T) {
 	type testModel struct{}
 	require.NoError(t, err)
 	t.Run("normal", func(t *testing.T) {
-		db, err := ApplyCondition(db, database.Condition{"id", 1})
+		db, err := Condition{"id", 1}.Apply(db)
 		require.NoError(t, err)
 		db.Find(&testModel{})
 		require.Equal(t, "SELECT * FROM `test_models` WHERE id = ?", db.Statement.SQL.String())
@@ -22,7 +21,7 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("compare", func(t *testing.T) {
-		db, err := ApplyCondition(db, database.Condition{"id", ">", 1})
+		db, err := Condition{"id", ">", 1}.Apply(db)
 		require.NoError(t, err)
 		db.Find(&testModel{})
 		require.Equal(t, "SELECT * FROM `test_models` WHERE id > (?)", db.Statement.SQL.String())
@@ -30,10 +29,10 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("and", func(t *testing.T) {
-		db, err := ApplyConditions(db, database.Conditions{
+		db, err := Conditions{
 			{"id", 1},
 			{"no", "2"},
-		})
+		}.Apply(db)
 		require.NoError(t, err)
 		db.Find(&testModel{})
 		require.Equal(t, "SELECT * FROM `test_models` WHERE id = ? AND no = ?", db.Statement.SQL.String())
@@ -41,7 +40,7 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("or", func(t *testing.T) {
-		db, err := ApplyCondition(db, database.Condition{"id = ? or no = ?", 1, "2"})
+		db, err := Condition{"id = ? or no = ?", 1, "2"}.Apply(db)
 		require.NoError(t, err)
 		db.Find(&testModel{})
 		require.Equal(t, "SELECT * FROM `test_models` WHERE id = ? or no = ?", db.Statement.SQL.String())
@@ -49,10 +48,10 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("or_and", func(t *testing.T) {
-		db, err := ApplyConditions(db, database.Conditions{
+		db, err := Conditions{
 			{"id = ? or no = ?", 1, "2"},
 			{"id != ? or no != ?", 1, "2"},
-		})
+		}.Apply(db)
 		require.NoError(t, err)
 		db.Find(&testModel{})
 		require.Equal(t, "SELECT * FROM `test_models` WHERE (id = ? or no = ?) AND (id != ? or no != ?)", db.Statement.SQL.String())

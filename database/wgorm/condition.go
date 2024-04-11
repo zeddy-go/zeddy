@@ -2,7 +2,6 @@ package wgorm
 
 import (
 	"fmt"
-	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/slicex"
 	"reflect"
 	"strings"
@@ -11,12 +10,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// ApplySingle
-//
-// Deprecated: use ApplyCondition instead.
-var ApplySingle = ApplyCondition
+type Condition []any
 
-func ApplyCondition(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err error) {
+func (c Condition) Apply(db *gorm.DB) (newDB *gorm.DB, err error) {
 	if len(c) < 2 {
 		return db, errx.New("condition require at least 2 params")
 	}
@@ -53,10 +49,20 @@ func ApplyCondition(db *gorm.DB, c database.Condition) (newDB *gorm.DB, err erro
 	return
 }
 
-func ApplyConditions(db *gorm.DB, cs database.Conditions) (newDB *gorm.DB, err error) {
+func sliceAnyToConditions(conditions ...[]any) (r Conditions) {
+	r = make(Conditions, len(conditions))
+	for i := range conditions {
+		r[i] = conditions[i]
+	}
+	return
+}
+
+type Conditions []Condition
+
+func (cs Conditions) Apply(db *gorm.DB) (newDB *gorm.DB, err error) {
 	newDB = db
 	for _, c := range cs {
-		newDB, err = ApplySingle(newDB, c)
+		newDB, err = Condition(c).Apply(newDB)
 		if err != nil {
 			return
 		}

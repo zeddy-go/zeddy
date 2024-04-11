@@ -69,14 +69,20 @@ func buildParams(fType reflect.Type, ctx *gin.Context) (params []reflect.Value, 
 	params = make([]reflect.Value, fType.NumIn())
 	valueCtx := reflect.ValueOf(ctx)
 	for i := 0; i < fType.NumIn(); i++ {
-		if fType.In(i) == valueCtx.Type() {
+		switch fType.In(i) {
+		case valueCtx.Type():
 			params[i] = valueCtx
-			continue
-		}
-
-		params[i], err = parseParam(ctx, fType.In(i))
-		if err != nil {
-			return
+		case reflect.TypeOf((*Page)(nil)):
+			params[i] = reflect.ValueOf(NewPageFromCtx(ctx, 15))
+		case reflect.TypeOf((*Filters)(nil)):
+			params[i] = reflect.ValueOf(NewFiltersFromCtx(ctx))
+		case reflect.TypeOf((*Sorts)(nil)):
+			params[i] = reflect.ValueOf(NewSortsFromCtx(ctx))
+		default:
+			params[i], err = parseParam(ctx, fType.In(i))
+			if err != nil {
+				return
+			}
 		}
 	}
 

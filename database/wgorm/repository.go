@@ -99,7 +99,7 @@ func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
 }
 
 // Update struct or map
-func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condition) (err error) {
+func (r *Repository[PO, Entity]) Update(entity any, conditions ...[]any) (err error) {
 	switch x := entity.(type) {
 	case *Entity:
 		po := new(PO)
@@ -118,7 +118,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 	case map[string]any:
 		query := r.GetDB()
 		if len(conditions) > 0 {
-			query, err = ApplyConditions(query, conditions)
+			query, err = apply(query, sliceAnyToConditions(conditions...))
 			if err != nil {
 				return
 			}
@@ -131,8 +131,8 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...database.Condi
 	return
 }
 
-func (r *Repository[PO, Entity]) Delete(conditions ...database.Condition) (err error) {
-	db, err := ApplyConditions(r.GetDB(), conditions)
+func (r *Repository[PO, Entity]) Delete(conditions ...[]any) (err error) {
+	db, err := apply(r.GetDB(), sliceAnyToConditions(conditions...))
 	if err != nil {
 		return
 	}
@@ -141,8 +141,8 @@ func (r *Repository[PO, Entity]) Delete(conditions ...database.Condition) (err e
 	return
 }
 
-func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity *Entity, err error) {
-	db, err := ApplyConditions(r.GetDB(), conditions)
+func (r *Repository[PO, Entity]) First(conditions ...[]any) (entity *Entity, err error) {
+	db, err := apply(r.GetDB(), sliceAnyToConditions(conditions...))
 	if err != nil {
 		return
 	}
@@ -158,8 +158,8 @@ func (r *Repository[PO, Entity]) First(conditions ...database.Condition) (entity
 	return
 }
 
-func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []*Entity, err error) {
-	db, err := ApplyConditions(r.GetDB(), conditions)
+func (r *Repository[PO, Entity]) List(conditions ...[]any) (list []*Entity, err error) {
+	db, err := apply(r.GetDB(), sliceAnyToConditions(conditions...))
 	if err != nil {
 		return
 	}
@@ -183,8 +183,8 @@ func (r *Repository[PO, Entity]) List(conditions ...database.Condition) (list []
 	return
 }
 
-func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...database.Condition) (total int64, list []*Entity, err error) {
-	db, err := ApplyConditions(r.GetDB(), conditions)
+func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...[]any) (total int64, list []*Entity, err error) {
+	db, err := apply(r.GetDB(), sliceAnyToConditions(conditions...))
 	if err != nil {
 		return
 	}
@@ -230,4 +230,17 @@ func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo d
 			return
 		}).Error
 	})
+}
+
+func apply(db *gorm.DB, conditions ...database.Condition[*gorm.DB]) (newDB *gorm.DB, err error) {
+	if len(conditions) == 0 {
+		return db, nil
+	}
+	for _, condition := range conditions {
+		newDB, err = condition.Apply(db)
+		if err != nil {
+			return
+		}
+	}
+	return
 }
