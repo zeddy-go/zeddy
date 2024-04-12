@@ -22,7 +22,7 @@ func GinMiddleware(f any) gin.HandlerFunc {
 	}
 
 	if fType.NumOut() > 1 {
-		panic(errors.New("middleware should return results not more than 1"))
+		panic(errors.New("middleware should return only err"))
 	}
 
 	return func(ctx *gin.Context) {
@@ -34,7 +34,17 @@ func GinMiddleware(f any) gin.HandlerFunc {
 
 		results := reflect.ValueOf(f).Call(params)
 
-		checkResult(ctx, results)
+		if len(results) == 0 {
+			ctx.Next()
+		}
+		if results[0].Interface() != nil {
+			parseAndResponse(results...).Do(ctx)
+			return
+		}
+
+		ctx.Next()
+
+		//checkResult(ctx, results)
 	}
 }
 
