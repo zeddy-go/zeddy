@@ -2,10 +2,9 @@ package jwt
 
 import (
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/golang-module/carbon/v2"
 	"github.com/stretchr/testify/require"
-	"github.com/uniplaces/carbon"
 	"testing"
-	"time"
 )
 
 func TestExpire(t *testing.T) {
@@ -45,7 +44,7 @@ func TestExpire(t *testing.T) {
 
 	t.Run("expire", func(t *testing.T) {
 		key := "123"
-		token, err := NewJwtTokenBuilder().WithKey(key).WithClaim(JwtExpiresAt, carbon.Now().Add(-time.Second).Unix()).BuildToken()
+		token, err := NewJwtTokenBuilder().WithKey(key).WithClaim(JwtExpiresAt, carbon.Now().SubSeconds(1).Timestamp()).BuildToken()
 		require.NoError(t, err)
 		require.NotEmpty(t, token)
 

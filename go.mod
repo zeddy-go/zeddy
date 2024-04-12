@@ -10,6 +10,7 @@ require (
 	github.com/gogf/gf/v2 v2.5.7
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/golang-migrate/migrate/v4 v4.16.2
+	github.com/golang-module/carbon/v2 v2.3.10
 	github.com/jinzhu/copier v0.4.0
 	github.com/pkg/errors v0.9.1
 	github.com/sony/sonyflake v1.2.0
@@ -17,7 +18,6 @@ require (
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
 	github.com/timandy/routine v1.1.3
-	github.com/uniplaces/carbon v0.2.2
 	golang.org/x/mod v0.12.0
 	google.golang.org/grpc v1.63.0
 	google.golang.org/protobuf v1.33.0

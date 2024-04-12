@@ -44,8 +44,6 @@ func GinMiddleware(f any) gin.HandlerFunc {
 		}
 
 		ctx.Next()
-
-		//checkResult(ctx, results)
 	}
 }
 
