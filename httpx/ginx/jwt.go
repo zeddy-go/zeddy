@@ -4,7 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	jwt2 "github.com/golang-jwt/jwt/v5"
 	"github.com/zeddy-go/zeddy/errx"
-	"github.com/zeddy-go/zeddy/tool/jwt"
+	"github.com/zeddy-go/zeddy/tool/jwtx"
 	"net/http"
 	"strings"
 )
@@ -13,7 +13,7 @@ func NewJwtAuthMiddlewareBuilder() *JwtAuthMiddlewareBuilder {
 	return &JwtAuthMiddlewareBuilder{
 		header: "Authorization",
 		query:  "token",
-		idKey:  jwt.JwtSubject,
+		idKey:  jwtx.JwtSubject,
 	}
 }
 
@@ -65,7 +65,7 @@ func (j *JwtAuthMiddlewareBuilder) Build() func(*gin.Context) error {
 			return errx.New("无有效token", errx.WithCode(http.StatusUnauthorized), errx.WithAbort())
 		}
 
-		t, err := jwt.Parse(token, j.salt)
+		t, err := jwtx.Parse(token, j.salt)
 		if err != nil {
 			return errx.New(err.Error(), errx.WithCode(http.StatusUnauthorized), errx.WithAbort())
 		}

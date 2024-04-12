@@ -20,12 +20,12 @@ func IsTrue(str string) bool {
 	return false
 }
 
-func RandString(len int) string {
+func RandString(length int) string {
+	s := "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	r := rand.New(rand.NewSource(time.Now().Unix()))
-	bytes := make([]byte, len)
-	for i := 0; i < len; i++ {
-		b := r.Intn(26) + 65
-		bytes[i] = byte(b)
+	bytes := make([]byte, length)
+	for i := 0; i < length; i++ {
+		bytes[i] = s[r.Intn(len(s))]
 	}
 	return string(bytes)
 }
