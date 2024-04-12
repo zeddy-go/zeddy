@@ -3,6 +3,7 @@ package ginx
 import (
 	"errors"
 	"github.com/gin-gonic/gin/binding"
+	jwt2 "github.com/golang-jwt/jwt/v5"
 	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
 
@@ -88,6 +89,13 @@ func buildParams(fType reflect.Type, ctx *gin.Context) (params []reflect.Value, 
 			params[i] = reflect.ValueOf(NewFiltersFromCtx(ctx))
 		case reflect.TypeOf((*Sorts)(nil)):
 			params[i] = reflect.ValueOf(NewSortsFromCtx(ctx))
+		case reflect.TypeOf((jwt2.MapClaims)(nil)):
+			claims, ok := ctx.Get("claims")
+			if ok {
+				params[i] = reflect.ValueOf(claims)
+			} else {
+				params[i] = reflect.ValueOf((jwt2.MapClaims)(nil))
+			}
 		default:
 			params[i], err = parseParam(ctx, fType.In(i))
 			if err != nil {
@@ -139,26 +147,6 @@ func newFromType(t reflect.Type) (r reflect.Value) {
 	}
 	r = reflect.New(t)
 	return
-}
-
-func checkResult(ctx *gin.Context, results []reflect.Value) {
-	switch len(results) {
-	case 0:
-		fallthrough
-	case 1:
-		r := results[0].Interface()
-		if r == nil {
-			return
-		}
-		switch x := r.(type) {
-		case error:
-			err := errx.Wrap(x, "middleware error", errx.WithAbort())
-			DefaultNewResponseFunc(nil, nil, err).Do(ctx)
-		}
-		return
-	default:
-		panic(errors.New("middleware should return results not more than 1"))
-	}
 }
 
 func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
