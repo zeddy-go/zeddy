@@ -2,7 +2,6 @@ package slicex
 
 import (
 	"errors"
-	"strings"
 )
 
 func Find[T any](f func(item T) bool, arr ...T) (result T, ok bool) {
@@ -59,11 +58,12 @@ func First[T any](arr ...T) (result T) {
 	return arr[0]
 }
 
-func Contains[T comparable](finds any, data []T) (found bool) {
+// Contains find if target in data
+func Contains[T comparable](target any, data []T) (found bool) {
 	if data == nil {
 		return false
 	}
-	switch x := finds.(type) {
+	switch x := target.(type) {
 	case []T:
 		for _, find := range x {
 			for _, item := range data {
@@ -75,12 +75,7 @@ func Contains[T comparable](finds any, data []T) (found bool) {
 		}
 	case T:
 		for _, item := range data {
-			switch x := finds.(type) {
-			case string:
-				found = strings.Contains(x, any(item).(string))
-			default:
-				found = item == x
-			}
+			found = item == x
 			if found {
 				return
 			}

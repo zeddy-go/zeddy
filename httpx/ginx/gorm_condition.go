@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/stoewer/go-strcase"
-	"github.com/zeddy-go/zeddy/database/wgorm"
+	"github.com/zeddy-go/zeddy/stringx"
 	"gorm.io/gorm"
 	"strings"
 )
@@ -61,20 +61,8 @@ type Filters struct {
 	m map[string]string
 }
 
-func (f Filters) Apply(db *gorm.DB) (newDB *gorm.DB, err error) {
-	newDB = db
-	for key, value := range f.m {
-		newDB, err = wgorm.Condition(parse(key, value)).Apply(newDB)
-		if err != nil {
-			return
-		}
-	}
-
-	return
-}
-
-func (f Filters) ParseAll() (results [][]any) {
-	results = make([][]any, 0, len(f.m))
+func (f Filters) ParseAll() (results []any) {
+	results = make([]any, 0, len(f.m))
 	for key, value := range f.m {
 		results = append(results, parse(key, value))
 	}
@@ -110,7 +98,7 @@ func NewSortsFromCtx(ctx *gin.Context) *Sorts {
 	tmp := ctx.QueryMap("sorts")
 	for k, v := range tmp {
 		delete(tmp, k)
-		if v != "" {
+		if v != "" && stringx.Contains([]string{"desc", "DESC", "asc", "ASC"}, v) {
 			tmp[strcase.SnakeCase(k)] = v
 		}
 	}

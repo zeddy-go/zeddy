@@ -59,26 +59,14 @@ func TestFilters(t *testing.T) {
 			"g": "7",
 		},
 	}
-	db := getDB(t)
-	db, err := f.Apply(db)
-	require.NoError(t, err)
-
-	db.Find(&test{})
-	require.Contains(t, db.Statement.SQL.String(), "SELECT * FROM `tests` WHERE")
-	require.Contains(t, db.Statement.SQL.String(), "b like (?)")
-	require.Contains(t, db.Statement.SQL.String(), "c > (?)")
-	require.Contains(t, db.Statement.SQL.String(), "d < (?)")
-	require.Contains(t, db.Statement.SQL.String(), "e >= (?)")
-	require.Contains(t, db.Statement.SQL.String(), "f <= (?)")
-	require.Contains(t, db.Statement.SQL.String(), "a != (?)")
-	require.Contains(t, db.Statement.SQL.String(), "g = ?")
-	require.Contains(t, db.Statement.Vars, "%2%")
-	require.Contains(t, db.Statement.Vars, "1")
-	require.Contains(t, db.Statement.Vars, "3")
-	require.Contains(t, db.Statement.Vars, "4")
-	require.Contains(t, db.Statement.Vars, "5")
-	require.Contains(t, db.Statement.Vars, "6")
-	require.Contains(t, db.Statement.Vars, "7")
+	result := f.ParseAll()
+	require.Contains(t, result, []any{"a", "!=", "1"})
+	require.Contains(t, result, []any{"b", "like", "%2%"})
+	require.Contains(t, result, []any{"c", ">", "3"})
+	require.Contains(t, result, []any{"d", "<", "4"})
+	require.Contains(t, result, []any{"e", ">=", "5"})
+	require.Contains(t, result, []any{"f", "<=", "6"})
+	require.Contains(t, result, []any{"g", "7"})
 }
 
 func TestSorts(t *testing.T) {

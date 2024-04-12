@@ -1,4 +1,4 @@
-package tools
+package stringx
 
 import (
 	"math/rand"
@@ -41,4 +41,18 @@ func RandNumeric(len int) string {
 	}
 
 	return sb.String()
+}
+
+func Contains(target any, str string) bool {
+	switch x := target.(type) {
+	case string:
+		return strings.Contains(str, x)
+	case []string:
+		for _, s := range x {
+			if strings.Contains(str, s) {
+				return true
+			}
+		}
+	}
+	return false
 }

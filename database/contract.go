@@ -22,11 +22,11 @@ type IDBHolder[DB any] interface {
 type IRepository[Entity any, DB any] interface {
 	IDBHolder[DB]
 	Create(...*Entity) error
-	Update(structOrMap any, conditions ...[]any) error
-	First(conditions ...[]any) (*Entity, error)
-	List(conditions ...[]any) ([]*Entity, error)
-	Delete(conditions ...[]any) error
-	Pagination(offset, limit int, conditions ...[]any) (total int64, list []*Entity, err error)
+	Update(structOrMap any, conditions ...any) error
+	First(conditions ...any) (*Entity, error)
+	List(conditions ...any) ([]*Entity, error)
+	Delete(conditions ...any) error
+	Pagination(offset, limit int, conditions ...any) (total int64, list []*Entity, err error)
 	ListInBatch(batchSize int, callback func(repo IRepository[Entity, DB], list []*Entity) error) (err error)
 }
 
