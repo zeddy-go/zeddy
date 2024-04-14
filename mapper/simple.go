@@ -32,11 +32,8 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 		if !dstField.IsValid() {
 			if srcFieldStruct.Anonymous {
 				err = SimpleMapValue(dst, srcField)
-				continue
-			} else {
-				err = errors.New("field is not valid")
-				return
 			}
+			continue
 		}
 
 		if reflectx.BaseKind(srcField) == reflect.Struct {

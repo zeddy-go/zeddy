@@ -30,8 +30,6 @@ func WithE2M[PO any, Entity any](f func(dst *PO, src *Entity) error) func(*Repos
 }
 
 func defaultM2E[PO any, Entity any](dst *Entity, src *PO) error {
-	fmt.Printf("%+v\n", dst)
-	fmt.Printf("%+v\n", src)
 	return mapper.SimpleMap(dst, src)
 }
 
