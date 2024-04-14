@@ -11,7 +11,10 @@ import (
 func SimpleMap(dest any, source any) (err error) {
 	dst := reflect.ValueOf(dest)
 	src := reflect.ValueOf(source)
-	if reflectx.BaseKind(dst) != reflect.Struct || reflectx.BaseKind(src) != reflect.Struct {
+	for src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
+	if reflectx.BaseKind(dst) != reflect.Struct || src.Kind() != reflect.Struct {
 		err = errors.New("should be struct")
 		return
 	}

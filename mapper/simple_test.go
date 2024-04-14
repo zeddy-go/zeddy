@@ -176,6 +176,31 @@ func TestFieldInValid(t *testing.T) {
 	require.Equal(t, struct1.C, struct2.C)
 }
 
+func TestSimpleMap2(t *testing.T) {
+	type m struct {
+		ID       uint64
+		Username string
+		Password string
+	}
+	type e struct {
+		ID       uint64
+		Username string
+		Password string
+	}
+
+	model := &m{
+		ID:       1,
+		Username: "zed",
+		Password: "zed",
+	}
+	var entity e
+	err := SimpleMap(&entity, &model)
+	require.NoError(t, err)
+	require.Equal(t, model.ID, entity.ID)
+	require.Equal(t, model.Username, entity.Username)
+	require.Equal(t, model.Password, entity.Password)
+}
+
 func BenchmarkCopier(b *testing.B) {
 	type CommonField struct {
 		C bool
