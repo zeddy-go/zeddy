@@ -1,4 +1,4 @@
-package grpc
+package grpcx
 
 import (
 	"github.com/spf13/viper"
@@ -45,7 +45,7 @@ func (m *Module) Init() (err error) {
 	healthCheck := health.NewServer()
 	healthgrpc.RegisterHealthServer(m.grpcServer, healthCheck)
 
-	err = container.Bind[*health.Server](healthCheck, container.AsSingleton())
+	err = container.Bind[*health.Server](healthCheck)
 	if err != nil {
 		return
 	}
@@ -54,7 +54,7 @@ func (m *Module) Init() (err error) {
 		reflection.Register(m.grpcServer)
 	}
 
-	err = container.Bind[*grpc.Server](m.grpcServer, container.AsSingleton())
+	err = container.Bind[*grpc.Server](m.grpcServer)
 	if err != nil {
 		return
 	}

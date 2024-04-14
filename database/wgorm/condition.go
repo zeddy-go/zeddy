@@ -2,7 +2,7 @@ package wgorm
 
 import (
 	"fmt"
-	"github.com/zeddy-go/zeddy/reflectx"
+	"github.com/zeddy-go/zeddy/convert"
 	"reflect"
 	"strings"
 
@@ -51,7 +51,7 @@ func applyCondition(db *gorm.DB, conditions ...[]any) (newDB *gorm.DB, err error
 				switch c[1] {
 				case "like":
 					var value string
-					value, err = reflectx.ConvertTo[string](c[2])
+					value, err = convert.To[string](c[2])
 					if err != nil {
 						return
 					}

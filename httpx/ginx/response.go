@@ -4,8 +4,8 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
+	"github.com/zeddy-go/zeddy/convert"
 	"github.com/zeddy-go/zeddy/errx"
-	"github.com/zeddy-go/zeddy/reflectx"
 	"gorm.io/gorm"
 	"net/http"
 )
@@ -147,7 +147,7 @@ func NewAllOkStatusJsonResponse(data any, meta IMeta, err error) IResponse[*gin.
 		resp.Response.Meta = meta.GetMeta()
 		if code, ok := resp.Response.Meta["code"]; ok {
 			var e error
-			resp.Response.Code, e = reflectx.ConvertTo[int](code)
+			resp.Response.Code, e = convert.To[int](code)
 			if err != nil {
 				panic(e)
 			}

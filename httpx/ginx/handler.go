@@ -4,6 +4,7 @@ import (
 	"errors"
 	"github.com/gin-gonic/gin/binding"
 	jwt2 "github.com/golang-jwt/jwt/v5"
+	"github.com/zeddy-go/zeddy/convert"
 	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
 
@@ -129,7 +130,7 @@ func parseParam(ctx *gin.Context, t reflect.Type) (p reflect.Value, err error) {
 		}
 
 		pp := reflect.New(t)
-		err = reflectx.SetValue(psrc, pp)
+		err = reflectx.SetValue(pp, psrc)
 		if err != nil {
 			return
 		}
@@ -176,7 +177,7 @@ func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 		}
 
 		if isNumber(results[0]) {
-			tmp, err := reflectx.ConvertToKind(results[0], reflect.Int)
+			tmp, err := convert.ToKind(results[0], reflect.Int)
 			if err != nil {
 				panic(err)
 			}

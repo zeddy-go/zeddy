@@ -30,13 +30,11 @@ func WithE2M[PO any, Entity any](f func(dst *PO, src *Entity) error) func(*Repos
 }
 
 func defaultM2E[PO any, Entity any](dst *Entity, src *PO) error {
-	mapper.MustSimpleMap(dst, src)
-	return nil
+	return mapper.SimpleMap(dst, src)
 }
 
 func defaultE2M[PO any, Entity any](dst *PO, src *Entity) error {
-	mapper.MustSimpleMap(dst, src)
-	return nil
+	return mapper.SimpleMap(dst, src)
 }
 
 func NewRepository[PO any, Entity any](db *gorm.DB, opts ...func(*Repository[PO, Entity])) *Repository[PO, Entity] {

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Type is database type. eg. mysql, postgres
+// Type is database type. e.g. mysql, postgres
 type Type string
 
 const (

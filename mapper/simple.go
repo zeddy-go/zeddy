@@ -1,175 +1,94 @@
 package mapper
 
 import (
+	"errors"
+	"github.com/zeddy-go/zeddy/convert"
 	"github.com/zeddy-go/zeddy/reflectx"
 	"reflect"
+	"strings"
 )
 
-func SimpleMap(dst any, src any, sets ...func(*Simple)) (err error) {
-	m := NewSimple(sets...)
-	return m.Map(dst, src)
-}
-
-func SimpleMapSlice(dst any, src any, sets ...func(*Simple)) (err error) {
-	m := NewSimple(sets...)
-	return m.MapSlice(dst, src)
-}
-
-func MustSimpleMap(dst any, src any, sets ...func(*Simple)) {
-	err := SimpleMap(dst, src, sets...)
-	if err != nil {
-		panic(err)
+func SimpleMap(dest any, source any) (err error) {
+	dst := reflect.ValueOf(dest)
+	src := reflect.ValueOf(source)
+	if reflectx.BaseKind(dst) != reflect.Struct || reflectx.BaseKind(src) != reflect.Struct {
+		err = errors.New("should be struct")
+		return
 	}
+	return SimpleMapValue(dst, src)
 }
 
-func MustSimpleMapSlice(dst any, src any, sets ...func(*Simple)) {
-	err := SimpleMapSlice(dst, src, sets...)
-	if err != nil {
-		panic(err)
-	}
-}
+func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
+	for i := 0; i < src.NumField(); i++ {
+		var (
+			srcField       = src.Field(i)
+			srcFieldStruct = src.Type().Field(i)
+			dstField       reflect.Value
+		)
+		dstField = findField(dst, srcFieldStruct, srcField, false)
+		if !dstField.IsValid() {
+			if srcFieldStruct.Anonymous {
+				err = SimpleMapValue(dst, srcField)
+				continue
+			} else {
+				err = errors.New("field is not valid")
+				return
+			}
+		}
 
-func WithFieldSimple(f func(srcField string) (dstField string)) func(*Simple) {
-	return func(mapper *Simple) {
-		mapper.fieldMapper = f
-	}
-}
+		if reflectx.BaseKind(srcField) == reflect.Struct {
+			err = SimpleMapValue(dstField, srcField)
+			if err != nil {
+				return
+			}
+		} else if reflectx.BaseKind(dstField) != reflectx.BaseKind(srcField) {
+			srcField, err = convert.ToKind(srcField, dstField.Kind())
+			if err != nil {
+				return
+			}
+		}
 
-func NewSimple(sets ...func(*Simple)) *Simple {
-	m := &Simple{}
-	for _, set := range sets {
-		set(m)
-	}
-
-	return m
-}
-
-type Simple struct {
-	fieldMapper func(srcField string) (dstField string)
-}
-
-func (s *Simple) MapSlice(dst any, src any) (err error) {
-	dstValue := reflect.ValueOf(dst).Elem()
-	srcValue := reflect.ValueOf(src)
-	for srcValue.Kind() == reflect.Ptr {
-		srcValue = srcValue.Elem()
-	}
-
-	if dstValue.IsNil() {
-		dstValue.Set(reflect.MakeSlice(dstValue.Type(), 0, srcValue.Len()))
-	}
-
-	itemType := dstValue.Type().Elem()
-	for i := 0; i < srcValue.Len(); i++ {
-		dstItem := reflect.New(itemType).Elem()
-		err = s.mapValue(dstItem, srcValue.Index(i))
+		err = reflectx.SetValue(dstField, srcField)
 		if err != nil {
 			return
 		}
-		dstValue.Set(reflect.Append(dstValue, dstItem))
 	}
 
 	return
 }
 
-func (s *Simple) Map(dst any, src any) (err error) {
-	dstValue := reflect.ValueOf(dst).Elem()
-
-	srcValue := reflect.ValueOf(src)
-	for srcValue.Kind() == reflect.Ptr {
-		srcValue = srcValue.Elem()
+func findField(v reflect.Value, sf reflect.StructField, f reflect.Value, caseSensitive bool) (r reflect.Value) {
+	for v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
-
-	return s.mapValue(dstValue, srcValue)
-}
-
-func (s *Simple) mapValue(dstValue reflect.Value, srcValue reflect.Value) (err error) {
-	if srcValue.Kind() == reflect.Struct && dstValue.Kind() == reflect.Struct {
-		err = s.mapStructToStruct(dstValue, srcValue)
-	} else if srcValue.Kind() == reflect.Map && dstValue.Kind() == reflect.Struct {
-		err = s.mapMapToStruct(dstValue, srcValue)
-	} else if srcValue.Kind() == reflect.Struct && dstValue.Kind() == reflect.Map {
-		err = s.mapStructToMap(dstValue, srcValue)
+	if sf.Anonymous {
+		for i := 0; i < v.NumField(); i++ {
+			if v.Type().Field(i).Anonymous {
+				vf := v.Field(i)
+				if vf.Type() == f.Type() {
+					r = vf
+				}
+			}
+		}
 	} else {
-		panic("unsupported type")
-	}
-
-	return
-}
-
-func (s *Simple) mapStructToMap(dst reflect.Value, src reflect.Value) (err error) {
-	if dst.IsNil() {
-		dst.Set(reflect.MakeMapWithSize(dst.Type(), src.NumField()))
-	}
-	for i := 0; i < src.NumField(); i++ {
-		if src.Type().Field(i).Anonymous {
-			err = s.mapStructToMap(dst, src.Field(i))
-			if err != nil {
-				return
+		if caseSensitive {
+			r = v.FieldByName(sf.Name)
+		} else {
+			vType := v.Type()
+			for i := 0; i < v.NumField(); i++ {
+				vFieldStruct := vType.Field(i)
+				if vFieldStruct.Anonymous {
+					r = findField(v.Field(i), sf, f, caseSensitive)
+					if !r.IsValid() {
+						continue
+					} else {
+						break
+					}
+				} else if strings.ToLower(vFieldStruct.Name) == strings.ToLower(sf.Name) {
+					r = v.Field(i)
+					break
+				}
 			}
-		}
-
-		var fieldName string
-		if s.fieldMapper == nil {
-			fieldName = src.Type().Field(i).Name
-		} else {
-			fieldName = s.fieldMapper(src.Type().Field(i).Name)
-		}
-
-		dst.SetMapIndex(reflect.ValueOf(fieldName), src.Field(i))
-	}
-
-	return
-}
-
-func (s *Simple) mapStructToStruct(dst reflect.Value, src reflect.Value) (err error) {
-	for i := 0; i < src.NumField(); i++ {
-		if src.Type().Field(i).Anonymous {
-			err = s.mapStructToStruct(dst, src.Field(i))
-			if err != nil {
-				return
-			}
-		}
-
-		var fieldName string
-		if s.fieldMapper == nil {
-			fieldName = src.Type().Field(i).Name
-		} else {
-			fieldName = s.fieldMapper(src.Type().Field(i).Name)
-		}
-
-		field := dst.FieldByName(fieldName)
-		if !field.CanSet() {
-			continue
-		}
-
-		err = reflectx.SetValue(src.Field(i), field)
-		if err != nil {
-			return
-		}
-	}
-
-	return
-}
-
-func (s *Simple) mapMapToStruct(dst reflect.Value, src reflect.Value) (err error) {
-	iter := src.MapRange()
-	for iter.Next() {
-		var fieldName string
-		if s.fieldMapper == nil {
-			fieldName = iter.Key().String()
-		} else {
-			fieldName = s.fieldMapper(iter.Key().String())
-		}
-
-		field := dst.FieldByName(fieldName)
-		if !field.CanSet() {
-			continue
-		}
-
-		err = reflectx.SetValue(iter.Value(), field)
-		if err != nil {
-			return
 		}
 	}
 
