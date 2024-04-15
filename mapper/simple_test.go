@@ -201,6 +201,33 @@ func TestSimpleMap2(t *testing.T) {
 	require.Equal(t, model.Password, entity.Password)
 }
 
+func TestSimpleMap3(t *testing.T) {
+	type Common1 struct {
+		C bool
+	}
+	type Common2 struct {
+		C bool
+	}
+	type s1 struct {
+		A      int
+		Common *Common1
+	}
+	type s2 struct {
+		A      int
+		Common Common2
+	}
+
+	struct1 := s1{
+		A:      1,
+		Common: &Common1{C: true},
+	}
+	var struct2 s2
+	err := SimpleMap(&struct2, struct1)
+	require.NoError(t, err)
+	require.Equal(t, struct1.A, struct2.A)
+	require.Equal(t, struct1.Common.C, struct2.Common.C)
+}
+
 func BenchmarkCopier(b *testing.B) {
 	type CommonField struct {
 		C bool

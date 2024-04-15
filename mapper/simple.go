@@ -8,6 +8,19 @@ import (
 	"strings"
 )
 
+//func SimpleMapSlice(dest any, source any) (err error) {
+//	dst := reflect.ValueOf(dest)
+//	for dst.Kind() == reflect.Ptr {
+//		dst = dst.Elem()
+//	}
+//	src := reflect.ValueOf(source)
+//	for src.Kind() == reflect.Ptr {
+//		src = src.Elem()
+//	}
+//
+//
+//}
+
 func SimpleMap(dest any, source any) (err error) {
 	dst := reflect.ValueOf(dest)
 	src := reflect.ValueOf(source)
@@ -22,6 +35,9 @@ func SimpleMap(dest any, source any) (err error) {
 }
 
 func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
+	if src.Kind() == reflect.Ptr {
+		src = src.Elem()
+	}
 	for i := 0; i < src.NumField(); i++ {
 		var (
 			srcField       = src.Field(i)
@@ -41,6 +57,7 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 			if err != nil {
 				return
 			}
+			continue
 		} else if reflectx.BaseKind(dstField) != reflectx.BaseKind(srcField) {
 			srcField, err = convert.ToKind(srcField, dstField.Kind())
 			if err != nil {
