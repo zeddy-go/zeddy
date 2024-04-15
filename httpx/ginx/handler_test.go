@@ -1,8 +1,8 @@
 package ginx
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"reflect"
@@ -69,35 +69,32 @@ func TestParse2(t *testing.T) {
 }
 
 func TestResponse(t *testing.T) {
-	r := parseAndResponse().(*JsonResponse)
-	require.Nil(t, r.Err)
-	require.Nil(t, r.Response)
+	r := parseAndResponse().(*RestfulResponse)
+	require.Nil(t, r.err)
+	require.Nil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(errors.New("test"))).(*JsonResponse)
-	require.NotNil(t, r.Err)
-	require.Nil(t, r.Response)
+	r = parseAndResponse(reflect.ValueOf(errors.New("test"))).(*RestfulResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true})).(*JsonResponse)
-	require.Nil(t, r.Err)
-	require.NotNil(t, r.Response)
-	require.NotNil(t, r.Response.Data)
+	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true})).(*RestfulResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*JsonResponse)
-	require.Nil(t, r.Err)
-	require.NotNil(t, r.Response)
-	require.NotNil(t, r.Response.Data)
+	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*RestfulResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*JsonResponse)
-	require.NotNil(t, r.Err)
-	require.Nil(t, r.Response)
+	r = parseAndResponse(reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*RestfulResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*JsonResponse)
-	require.NotNil(t, r.Err)
-	require.Nil(t, r.Response)
+	r = parseAndResponse(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(errors.New("test"))).(*RestfulResponse)
+	require.NotNil(t, r.err)
+	require.Nil(t, r.Data)
 
-	r = parseAndResponse(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*JsonResponse)
-	require.Nil(t, r.Err)
-	require.NotNil(t, r.Response)
-	require.NotNil(t, r.Response.Data)
-	require.NotNil(t, r.Response.Meta)
+	r = parseAndResponse(reflect.ValueOf(&Meta{Total: 1}), reflect.ValueOf(gin.H{"test": true}), reflect.ValueOf(nil)).(*RestfulResponse)
+	require.Nil(t, r.err)
+	require.NotNil(t, r.Data)
+	require.NotNil(t, r.meta)
 }

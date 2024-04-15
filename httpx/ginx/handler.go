@@ -13,9 +13,9 @@ import (
 	"github.com/zeddy-go/zeddy/reflectx"
 )
 
-type NewResponseFunc func(data any, meta IMeta, err error) IResponse[*gin.Context]
+type NewResponseFunc func() IResponse[*gin.Context]
 
-var DefaultNewResponseFunc NewResponseFunc = NewJsonResponse
+var defaultNewResponseFunc NewResponseFunc = NewRestfulResponse
 
 func GinMiddleware(f any) gin.HandlerFunc {
 	fType := reflect.TypeOf(f)
@@ -151,28 +151,28 @@ func newFromType(t reflect.Type) (r reflect.Value) {
 func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 	switch len(results) {
 	case 0:
-		resp = DefaultNewResponseFunc(nil, nil, nil)
+		resp = defaultNewResponseFunc()
 	case 1:
 		r := results[0].Interface()
 		if r == nil {
-			resp = DefaultNewResponseFunc(nil, nil, nil)
+			resp = defaultNewResponseFunc()
 			break
 		}
 		switch x := r.(type) {
 		case error:
-			resp = DefaultNewResponseFunc(nil, nil, x)
+			resp = defaultNewResponseFunc().SetError(x)
 		default:
-			resp = DefaultNewResponseFunc(r, nil, nil)
+			resp = defaultNewResponseFunc().SetData(r)
 		}
 	case 2:
 		if results[1].IsValid() && !results[1].IsNil() {
-			resp = DefaultNewResponseFunc(nil, nil, results[1].Interface().(error))
+			resp = defaultNewResponseFunc().SetError(results[1].Interface().(error))
 			break
 		}
-		resp = DefaultNewResponseFunc(results[0].Interface(), nil, nil)
+		resp = defaultNewResponseFunc().SetData(results[0].Interface())
 	case 3:
 		if results[2].IsValid() && !results[2].IsNil() {
-			resp = DefaultNewResponseFunc(nil, nil, results[2].Interface().(error))
+			resp = defaultNewResponseFunc().SetError(results[2].Interface().(error))
 			break
 		}
 
@@ -181,9 +181,9 @@ func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 			if err != nil {
 				panic(err)
 			}
-			resp = DefaultNewResponseFunc(results[1].Interface(), &Meta{Total: uint(tmp.Interface().(int))}, nil)
+			resp = defaultNewResponseFunc().SetData(results[1].Interface()).SetMeta(&Meta{Total: uint(tmp.Interface().(int))})
 		} else if m, ok := results[0].Interface().(IMeta); ok {
-			resp = DefaultNewResponseFunc(results[1].Interface(), m, nil)
+			resp = defaultNewResponseFunc().SetData(results[1].Interface()).SetMeta(m)
 		} else {
 			panic(errors.New("three results only for pagination"))
 		}
