@@ -76,3 +76,7 @@ func (m *Module) Start() {
 		slog.Error("grpc server shutdown", "error", err)
 	}
 }
+
+func (m *Module) Stop() {
+	m.grpcServer.Stop()
+}

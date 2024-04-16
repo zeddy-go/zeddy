@@ -1,14 +1,14 @@
 package ginx
 
 import (
+	"context"
+	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 	"github.com/zeddy-go/zeddy/app"
+	"github.com/zeddy-go/zeddy/container"
 	"log/slog"
 	"net/http"
-	"reflect"
-
-	"github.com/gin-gonic/gin"
-	"github.com/zeddy-go/zeddy/container"
+	"time"
 )
 
 func WithCustomEngine(e *gin.Engine) func(*Module) {
@@ -18,9 +18,7 @@ func WithCustomEngine(e *gin.Engine) func(*Module) {
 }
 
 func NewModule(opts ...func(*Module)) *Module {
-	m := &Module{
-		subModules: make([]app.Module, 0),
-	}
+	m := &Module{}
 
 	for _, set := range opts {
 		set(m)
@@ -35,29 +33,13 @@ func NewModule(opts ...func(*Module)) *Module {
 
 type Module struct {
 	app.IsModule
-	prefix     string
-	router     gin.IRouter
-	subModules []app.Module
-}
-
-func (m *Module) Register(subs ...app.Module) (err error) {
-	for _, sub := range subs {
-		m.subModules = append(m.subModules, sub)
-
-		registerMethod := reflect.ValueOf(sub).MethodByName("RegisterRoute")
-
-		if registerMethod.IsValid() && !registerMethod.IsNil() {
-			_, err = container.Default().Invoke(registerMethod)
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
+	prefix string
+	router gin.IRouter
+	svr    *http.Server
 }
 
 func (m *Module) Init() (err error) {
-	err = container.Bind[Router](m, container.AsSingleton())
+	err = container.Bind[Router](m)
 	if err != nil {
 		return
 	}
@@ -133,18 +115,24 @@ func (m *Module) Start() {
 		c = viper.GetViper()
 	}
 
-	svr := http.Server{
+	m.svr = &http.Server{
 		Handler: m.router.(http.Handler),
 	}
-	svr.Addr = c.GetString("addr")
+	m.svr.Addr = c.GetString("addr")
 
 	var err error
 	if c.GetBool("lts") {
-		err = svr.ListenAndServeTLS(c.GetString("certFile"), c.GetString("keyFile"))
+		err = m.svr.ListenAndServeTLS(c.GetString("certFile"), c.GetString("keyFile"))
 	} else {
-		err = svr.ListenAndServe()
+		err = m.svr.ListenAndServe()
 	}
 	if err != nil {
 		slog.Info("server shutdown", "error", err)
 	}
+}
+
+func (m *Module) Stop() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = m.svr.Shutdown(ctx)
 }

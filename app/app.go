@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -43,10 +44,14 @@ func Boot() (err error) {
 	return
 }
 
-func Start() (n int) {
+func Start(wg *sync.WaitGroup) (n int) {
 	for _, m := range moduleList {
-		if module, ok := m.(Startable); ok {
-			go module.Start()
+		if module, ok := m.(Service); ok {
+			wg.Add(1)
+			go func(start func()) {
+				defer wg.Done()
+				start()
+			}(module.Start)
 			n++
 		}
 	}
@@ -56,7 +61,7 @@ func Start() (n int) {
 
 func Stop() {
 	for _, m := range moduleList {
-		if module, ok := m.(Stopable); ok {
+		if module, ok := m.(Service); ok {
 			go module.Stop()
 		}
 	}
@@ -68,8 +73,8 @@ func StartAndWait() (err error) {
 		return
 	}
 
-	n := Start()
-	defer Stop()
+	var wg sync.WaitGroup
+	n := Start(&wg)
 
 	if n == 0 {
 		slog.Info("nothing started, shutdown.")
@@ -88,8 +93,11 @@ func StartAndWait() (err error) {
 		for range signals {
 			signal.Stop(signals)
 			close(signals)
+			Stop()
 		}
 
+		println("wait module stop...")
+		wg.Wait()
 		println("bye bye~")
 	}
 
