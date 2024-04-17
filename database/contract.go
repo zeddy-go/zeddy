@@ -30,6 +30,6 @@ type IRepository[Entity any, DB any] interface {
 	ListInBatch(batchSize int, callback func(repo IRepository[Entity, DB], list []*Entity) error) (err error)
 }
 
-type Condition[DB any] interface {
+type ConditionApplier[DB any] interface {
 	Apply(DB) (DB, error)
 }

@@ -239,13 +239,18 @@ func apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 	newDB = db
 	for _, condition := range conditions {
 		switch x := condition.(type) {
-		case database.Condition[*gorm.DB]:
+		case database.ConditionApplier[*gorm.DB]:
 			newDB, err = x.Apply(newDB)
 			if err != nil {
 				return
 			}
 		case []any:
 			newDB, err = applyCondition(newDB, x)
+			if err != nil {
+				return
+			}
+		case [][]any:
+			newDB, err = applyCondition(newDB, x...)
 			if err != nil {
 				return
 			}
