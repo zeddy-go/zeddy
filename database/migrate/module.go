@@ -1,7 +1,6 @@
 package migrate
 
 import (
-	"github.com/spf13/viper"
 	"github.com/zeddy-go/zeddy/app"
 	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/database"
@@ -18,18 +17,7 @@ type Module struct {
 }
 
 func (m Module) Init() (err error) {
-	driver := NewFsDriver()
-	err = container.Bind[*EmbedDriver](driver, container.AsSingleton())
-	if err != nil {
-		return
-	}
-
-	err = container.Bind[IMigrator](func(conf *viper.Viper) IMigrator {
-		return &DefaultMigrator{
-			DatabaseUrl:    database.DSN(conf.GetString("database.dsn")).Encode(),
-			SourceInstance: driver,
-		}
-	}, container.AsSingleton())
+	err = container.Bind[database.Migrator](NewDefaultMigrator)
 	if err != nil {
 		return
 	}
@@ -38,7 +26,7 @@ func (m Module) Init() (err error) {
 }
 
 func (m Module) Boot() (err error) {
-	err = container.Invoke(func(m IMigrator) (err error) {
+	err = container.Invoke(func(m database.Migrator) (err error) {
 		err = m.Migrate()
 		if err != nil {
 			return

@@ -245,3 +245,17 @@ func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results 
 
 	return
 }
+
+func (c *Container) Has(t reflect.Type) bool {
+	_, ok := c.instances[t]
+	if ok {
+		return true
+	}
+
+	_, ok = c.providers[t]
+	if ok {
+		return true
+	}
+
+	return false
+}

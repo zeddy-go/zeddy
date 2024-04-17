@@ -5,6 +5,13 @@ import (
 	"gorm.io/gorm"
 )
 
+type Migrator interface {
+	RegisterMigrates(...any) error
+	Migrate() error
+	Up(stepNum int) error
+	Down(stepNum int) error
+}
+
 type ITransaction interface {
 	Begin(sets ...func(*sql.TxOptions))
 	Commit() error

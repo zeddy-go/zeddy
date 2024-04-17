@@ -2,6 +2,8 @@ package app
 
 import (
 	"github.com/zeddy-go/zeddy/container"
+	"github.com/zeddy-go/zeddy/database"
+	"github.com/zeddy-go/zeddy/errx"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -13,9 +15,21 @@ var moduleList = make([]Module, 0)
 
 var beforeWaits = make([]any, 0)
 
+var migrates []any
+
+var seeds []any
+
 // BeforeWaits 等待钩子
 func BeforeWaits(funcs ...any) {
 	beforeWaits = append(beforeWaits, funcs...)
+}
+
+func RegisterMigrates(ms ...any) {
+	migrates = append(migrates, ms...)
+}
+
+func RegisterSeeds(ss ...any) {
+	seeds = append(seeds, ss...)
 }
 
 func Use(modules ...Module) {
@@ -26,6 +40,32 @@ func Boot() (err error) {
 	for _, module := range moduleList {
 		if m, ok := module.(Initable); ok {
 			err = m.Init()
+			if err != nil {
+				return
+			}
+		}
+	}
+
+	if len(migrates) > 0 {
+		if !container.Has[database.Migrator]() {
+			err = errx.New("migrator not found, forget use it?")
+			return
+		}
+		err = container.Invoke(func(migrator database.Migrator) (err error) {
+			err = migrator.RegisterMigrates(migrates...)
+			if err != nil {
+				return
+			}
+			return migrator.Migrate()
+		})
+		if err != nil {
+			return
+		}
+	}
+
+	if len(seeds) > 0 {
+		for _, seed := range seeds {
+			err = container.Invoke(seed)
 			if err != nil {
 				return
 			}

@@ -3,52 +3,58 @@
 package migrate
 
 import (
+	"context"
+	"database/sql"
+	"errors"
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/mysql"
 	_ "github.com/golang-migrate/migrate/v4/database/mysql"
-	"github.com/golang-migrate/migrate/v4/source"
+	"io/fs"
 )
 
-type IMigrator interface {
-	SetSourceURL(url string) IMigrator
-	SetSourceInstance(instance source.Driver) IMigrator
-	GetSourceInstance() source.Driver
-	SetDatabaseURL(dsn string) IMigrator
-	Migrate() error
+func NewDefaultMigrator(db *sql.DB) *DefaultMigrator {
+	return &DefaultMigrator{
+		db:             db,
+		SourceInstance: NewFsDriver(),
+	}
 }
 
 type DefaultMigrator struct {
-	SourceUrl      string
-	SourceInstance source.Driver
-	DatabaseUrl    string
+	SourceInstance *EmbedDriver
+	db             *sql.DB
 }
 
-func (d *DefaultMigrator) SetSourceURL(url string) IMigrator {
-	d.SourceUrl = url
-	return d
+func (d *DefaultMigrator) Up(stepNum int) error {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (d *DefaultMigrator) SetSourceInstance(instance source.Driver) IMigrator {
-	d.SourceInstance = instance
-	return d
+func (d *DefaultMigrator) Down(stepNum int) error {
+	//TODO implement me
+	panic("implement me")
 }
 
-func (d *DefaultMigrator) GetSourceInstance() source.Driver {
-	return d.SourceInstance
+func (d *DefaultMigrator) RegisterMigrates(ms ...any) (err error) {
+	for _, m := range ms {
+		d.SourceInstance.Add(m.(fs.FS))
+	}
+
+	return
 }
 
-func (d *DefaultMigrator) SetDatabaseURL(dsn string) IMigrator {
-	d.DatabaseUrl = dsn
-	return d
-}
-
-func (d DefaultMigrator) Migrate() (err error) {
+func (d *DefaultMigrator) Migrate() (err error) {
 	var m *migrate.Migrate
 
-	if d.SourceInstance != nil {
-		m, err = migrate.NewWithSourceInstance("", d.SourceInstance, d.DatabaseUrl)
-	} else {
-		m, err = migrate.New(d.SourceUrl, d.DatabaseUrl)
+	ctx := context.Background()
+	newConn, err := d.db.Conn(ctx)
+	if err != nil {
+		return
 	}
+	dbInstance, err := mysql.WithConnection(ctx, newConn, &mysql.Config{})
+	if err != nil {
+		return
+	}
+	m, err = migrate.NewWithInstance("", d.SourceInstance, "", dbInstance)
 	if err != nil {
 		return
 	}
@@ -57,7 +63,7 @@ func (d DefaultMigrator) Migrate() (err error) {
 	}()
 
 	err = m.Up()
-	if err == migrate.ErrNoChange {
+	if errors.Is(err, migrate.ErrNoChange) {
 		err = nil
 	}
 	return

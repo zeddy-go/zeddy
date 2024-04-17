@@ -34,6 +34,10 @@ func Resolve[T any]() (result T, err error) {
 	return
 }
 
+func Has[T any]() bool {
+	return Default().Has(reflect.TypeOf((*T)(nil)).Elem())
+}
+
 func Invoke(f any, opts ...func(*invokeOpts)) (err error) {
 	results, err := Default().Invoke(reflect.ValueOf(f), opts...)
 	if err != nil {
