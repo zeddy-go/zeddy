@@ -3,76 +3,8 @@ package mapper
 import (
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
-	"reflect"
 	"testing"
 )
-
-func TestFindField(t *testing.T) {
-	t.Run("case", func(t *testing.T) {
-		type s1 struct {
-			AA bool
-		}
-		type s2 struct {
-			Aa bool
-		}
-		ss1 := s1{}
-		ss2 := s2{}
-		vS1 := reflect.ValueOf(&ss1).Elem()
-		vS2 := reflect.ValueOf(ss2)
-		f := findField(vS1, vS2.Type().Field(0), vS2.Field(0), true)
-		require.False(t, f.IsValid())
-
-		f = findField(vS1, vS2.Type().Field(0), vS2.Field(0), false)
-		f.Set(reflect.ValueOf(true))
-		require.Equal(t, true, ss1.AA)
-	})
-	t.Run("anonymous", func(t *testing.T) {
-		type a struct {
-			C bool
-		}
-		type s1 struct {
-			a
-		}
-		type s2 struct {
-			a
-		}
-		ss1 := s1{}
-		ss2 := s2{}
-		vS1 := reflect.ValueOf(&ss1).Elem()
-		vS2 := reflect.ValueOf(ss2)
-		f := findField(vS1, vS2.Type().Field(0), vS2.Field(0), false)
-		require.Equal(t, reflect.Struct, f.Kind())
-
-		f = findField(f, vS2.Field(0).Type().Field(0), vS2.Field(0).Field(0), false)
-		f.Set(reflect.ValueOf(true))
-		require.Equal(t, true, ss1.a.C)
-	})
-	t.Run("anonymous_pointer", func(t *testing.T) {
-		type A struct {
-			C bool
-		}
-		type s1 struct {
-			*A
-		}
-		type s2 struct {
-			*A
-		}
-		ss1 := s1{}
-		ss2 := s2{
-			A: &A{},
-		}
-		vS1 := reflect.ValueOf(&ss1).Elem()
-		vS2 := reflect.ValueOf(ss2)
-		f := findField(vS1, vS2.Type().Field(0), vS2.Field(0), false)
-		require.Equal(t, reflect.Pointer, f.Kind())
-
-		f = reflect.New(f.Type().Elem())
-		vS1.Field(0).Set(f)
-		f = findField(f.Elem(), vS2.Field(0).Elem().Type().Field(0), vS2.Field(0).Elem().Field(0), false)
-		f.Set(reflect.ValueOf(true))
-		require.Equal(t, true, ss1.A.C)
-	})
-}
 
 func TestSimpleMap(t *testing.T) {
 	type CommonField struct {
@@ -215,6 +147,71 @@ func TestSimpleMap3(t *testing.T) {
 	type s2 struct {
 		A      int
 		Common Common2
+	}
+
+	struct1 := s1{
+		A:      1,
+		Common: &Common1{C: true},
+	}
+	var struct2 s2
+	err := SimpleMap(&struct2, struct1)
+	require.NoError(t, err)
+	require.Equal(t, struct1.A, struct2.A)
+	require.Equal(t, struct1.Common.C, struct2.Common.C)
+}
+
+func TestSimpleMap4(t *testing.T) {
+	type S1 struct {
+		A string
+	}
+	type S2 struct {
+		A []string
+	}
+	s1 := S1{}
+	var s2 S2
+	err := SimpleMap(&s2, s1)
+	require.NoError(t, err)
+	require.Equal(t, 0, len(s2.A))
+}
+
+func TestSimpleMap5(t *testing.T) {
+	type Common1 struct {
+		C bool
+	}
+	type s1 struct {
+		A int
+		*Common1
+	}
+	type s2 struct {
+		A int
+		*Common1
+	}
+
+	struct1 := s1{
+		A:       1,
+		Common1: &Common1{C: true},
+	}
+	var struct2 s2
+	err := SimpleMap(&struct2, struct1)
+	require.NoError(t, err)
+	require.Equal(t, struct1.A, struct2.A)
+	require.Equal(t, struct1.Common1.C, struct2.Common1.C)
+}
+
+func TestSimpleMap6(t *testing.T) {
+	type Common1 struct {
+		C bool
+	}
+	type Common2 struct {
+		C bool
+	}
+	type s1 struct {
+		A      int
+		Common *Common1
+	}
+	type s2 struct {
+		A      int
+		Common *Common2
 	}
 
 	struct1 := s1{

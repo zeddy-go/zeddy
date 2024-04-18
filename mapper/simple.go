@@ -23,10 +23,7 @@ import (
 
 func SimpleMap(dest any, source any) (err error) {
 	dst := reflect.ValueOf(dest)
-	src := reflect.ValueOf(source)
-	for src.Kind() == reflect.Ptr {
-		src = src.Elem()
-	}
+	src := reflectx.BaseValue(reflect.ValueOf(source))
 	if reflectx.BaseKind(dst) != reflect.Struct || src.Kind() != reflect.Struct {
 		err = errors.New("should be struct")
 		return
@@ -35,77 +32,75 @@ func SimpleMap(dest any, source any) (err error) {
 }
 
 func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
-	if src.Kind() == reflect.Ptr {
-		src = src.Elem()
-	}
 	for i := 0; i < src.NumField(); i++ {
 		var (
-			srcField       = src.Field(i)
+			srcField       = reflectx.BaseValue(src.Field(i))
 			srcFieldStruct = src.Type().Field(i)
 			dstField       reflect.Value
+			dstFieldStruct reflect.StructField
 		)
-		dstField = findField(dst, srcFieldStruct, srcField, false)
-		if !dstField.IsValid() {
-			if srcFieldStruct.Anonymous {
-				err = SimpleMapValue(dst, srcField)
-			}
-			continue
-		}
 
-		if reflectx.BaseKind(srcField) == reflect.Struct {
-			err = SimpleMapValue(dstField, srcField)
-			if err != nil {
-				return
+		if srcFieldStruct.Anonymous {
+			dstField, dstFieldStruct = findFieldAnonymous(dst, srcField.Type())
+			if dstField.IsValid() {
+				SimpleMapValue(dstField, srcField)
+			} else {
+				SimpleMapValue(dst, srcField)
 			}
-			continue
-		} else if reflectx.BaseKind(dstField) != reflectx.BaseKind(srcField) {
-			srcField, err = convert.ToKind(srcField, dstField.Kind())
-			if err != nil {
-				return
+		} else {
+			dstField, dstFieldStruct = findFieldByName(dst, srcFieldStruct.Name, false)
+			if dstField.IsValid() {
+				for dstField.Kind() == reflect.Pointer {
+					dstField.Set(reflect.New(dstFieldStruct.Type.Elem()))
+					dstField = dstField.Elem()
+				}
+				if srcField.Kind() == reflect.Struct {
+					SimpleMapValue(dstField, srcField)
+				} else {
+					srcField, err = convert.ToKindValue(srcField, dstField.Kind())
+					if err != nil {
+						err = nil
+						return
+					}
+					reflectx.SetValue(dstField, srcField)
+				}
 			}
-		}
-
-		err = reflectx.SetValue(dstField, srcField)
-		if err != nil {
-			return
 		}
 	}
 
 	return
 }
 
-func findField(v reflect.Value, sf reflect.StructField, f reflect.Value, caseSensitive bool) (r reflect.Value) {
-	for v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	if sf.Anonymous {
-		for i := 0; i < v.NumField(); i++ {
-			if v.Type().Field(i).Anonymous {
-				vf := v.Field(i)
-				if vf.Type() == f.Type() {
-					r = vf
-				}
+func findFieldByName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value, fieldStruct reflect.StructField) {
+	v = reflectx.BaseValue(v)
+	for i := 0; i < v.NumField(); i++ {
+		fs := v.Type().Field(i)
+		if fs.Anonymous {
+			dstField := v.Field(i)
+			for dstField.Kind() == reflect.Pointer {
+				dstField.Set(reflect.New(fs.Type.Elem()))
+				dstField = dstField.Elem()
+			}
+			field, fieldStruct = findFieldByName(v.Field(i), name, caseSensitive)
+			if field.IsValid() {
+				return
 			}
 		}
-	} else {
-		if caseSensitive {
-			r = v.FieldByName(sf.Name)
-		} else {
-			vType := v.Type()
-			for i := 0; i < v.NumField(); i++ {
-				vFieldStruct := vType.Field(i)
-				if vFieldStruct.Anonymous {
-					r = findField(v.Field(i), sf, f, caseSensitive)
-					if !r.IsValid() {
-						continue
-					} else {
-						break
-					}
-				} else if strings.ToLower(vFieldStruct.Name) == strings.ToLower(sf.Name) {
-					r = v.Field(i)
-					break
-				}
-			}
+		fieldName := fs.Name
+		if (caseSensitive && fieldName == name) || (!caseSensitive && strings.ToLower(fieldName) == strings.ToLower(name)) {
+			return v.Field(i), fs
+		}
+	}
+
+	return
+}
+
+func findFieldAnonymous(v reflect.Value, fieldType reflect.Type) (field reflect.Value, fieldStruct reflect.StructField) {
+	v = reflectx.BaseValue(v)
+	for i := 0; i < v.NumField(); i++ {
+		f := v.Field(i)
+		if f.Type() == fieldType {
+			return f, v.Type().Field(i)
 		}
 	}
 

@@ -16,6 +16,13 @@ func GetTag(field reflect.StructField, tags ...string) (content string) {
 	return
 }
 
+func BaseValue(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	return v
+}
+
 func IsSameBaseType(v1, v2 reflect.Value) (err error) {
 	t1 := BaseType(v1)
 	t2 := BaseType(v2)
