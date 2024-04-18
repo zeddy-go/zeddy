@@ -212,10 +212,10 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...any
 	return
 }
 
-func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity, *gorm.DB], list []*Entity) error) (err error) {
-	return r.TransactionTx(func(tx *gorm.DB) (err error) {
+func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity], list []*Entity) error) (err error) {
+	return r.Transaction(func() (err error) {
 		var list []PO
-		return tx.FindInBatches(&list, batchSize, func(tx *gorm.DB, batch int) (err error) {
+		return r.GetDB().FindInBatches(&list, batchSize, func(tx *gorm.DB, batch int) (err error) {
 			entities := make([]*Entity, 0, len(list))
 			for _, item := range list {
 				var dst Entity

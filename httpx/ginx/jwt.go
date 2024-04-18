@@ -13,16 +13,14 @@ func NewJwtAuthMiddlewareBuilder() *JwtAuthMiddlewareBuilder {
 	return &JwtAuthMiddlewareBuilder{
 		header: "Authorization",
 		query:  "token",
-		idKey:  jwtx.JwtSubject,
 	}
 }
 
 type JwtAuthMiddlewareBuilder struct {
-	header string                           //头字段
-	query  string                           //querystring字段
-	salt   string                           //盐
-	idKey  string                           //用户唯一标识
-	check  func(claims jwt2.MapClaims) bool //判断是否通过
+	header string                            //头字段
+	query  string                            //querystring字段
+	salt   string                            //盐
+	check  func(claims jwt2.MapClaims) error //判断是否通过
 }
 
 func (j *JwtAuthMiddlewareBuilder) SetHeader(header string) *JwtAuthMiddlewareBuilder {
@@ -40,12 +38,7 @@ func (j *JwtAuthMiddlewareBuilder) SetSalt(salt string) *JwtAuthMiddlewareBuilde
 	return j
 }
 
-func (j *JwtAuthMiddlewareBuilder) SetIdKey(idKey string) *JwtAuthMiddlewareBuilder {
-	j.idKey = idKey
-	return j
-}
-
-func (j *JwtAuthMiddlewareBuilder) SetUserIdentifier(f func(claims jwt2.MapClaims) bool) *JwtAuthMiddlewareBuilder {
+func (j *JwtAuthMiddlewareBuilder) SetUserIdentifier(f func(claims jwt2.MapClaims) error) *JwtAuthMiddlewareBuilder {
 	j.check = f
 	return j
 }
@@ -78,8 +71,10 @@ func (j *JwtAuthMiddlewareBuilder) Build() func(*gin.Context) error {
 			return errx.New("解析token失败", errx.WithCode(http.StatusUnauthorized), errx.WithAbort())
 		}
 
-		if j.check != nil && !j.check(claims) {
-			return errx.New("未找到用户", errx.WithCode(http.StatusUnauthorized), errx.WithAbort())
+		if j.check != nil {
+			if err = j.check(claims); err != nil {
+				return errx.Wrap(err, "未找到用户", errx.WithCode(http.StatusUnauthorized), errx.WithAbort())
+			}
 		}
 
 		c.Set("claims", claims)

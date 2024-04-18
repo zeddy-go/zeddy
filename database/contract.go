@@ -2,7 +2,6 @@ package database
 
 import (
 	"database/sql"
-	"gorm.io/gorm"
 )
 
 type Migrator interface {
@@ -17,8 +16,6 @@ type ITransaction interface {
 	Commit() error
 	Rollback() error
 	Transaction(f func() error, sets ...func(*sql.TxOptions)) error
-	BeginTx(sets ...func(*sql.TxOptions)) (tx *gorm.DB)
-	TransactionTx(f func(tx *gorm.DB) error, sets ...func(*sql.TxOptions)) (err error)
 }
 
 type IDBHolder[DB any] interface {
@@ -26,15 +23,14 @@ type IDBHolder[DB any] interface {
 	ITransaction
 }
 
-type IRepository[Entity any, DB any] interface {
-	IDBHolder[DB]
+type IRepository[Entity any] interface {
 	Create(...*Entity) error
 	Update(structOrMap any, conditions ...any) error
 	First(conditions ...any) (*Entity, error)
 	List(conditions ...any) ([]*Entity, error)
 	Delete(conditions ...any) error
 	Pagination(offset, limit int, conditions ...any) (total int64, list []*Entity, err error)
-	ListInBatch(batchSize int, callback func(repo IRepository[Entity, DB], list []*Entity) error) (err error)
+	ListInBatch(batchSize int, callback func(repo IRepository[Entity], list []*Entity) error) (err error)
 }
 
 type ConditionApplier[DB any] interface {

@@ -9,6 +9,11 @@ import (
 
 var _ callbacks.BeforeCreateInterface = (*SnowflakeID)(nil)
 
+type UnixTimestampMilli struct {
+	CreatedAt int64 `json:"created_at" gorm:"autoCreateTime:milli"`
+	UpdatedAt int64 `json:"updated_at" gorm:"autoUpdateTime:milli"`
+}
+
 type CommonField struct {
 	SnowflakeID
 	CreatedAt int64 `json:"created_at" gorm:"autoCreateTime"`
