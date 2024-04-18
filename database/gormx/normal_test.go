@@ -1,4 +1,4 @@
-package wgorm
+package gormx
 
 import (
 	"fmt"

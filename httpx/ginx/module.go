@@ -17,6 +17,12 @@ func WithCustomEngine(e *gin.Engine) func(*Module) {
 	}
 }
 
+func WithPrefix(prefix string) func(*Module) {
+	return func(module *Module) {
+		module.prefix = prefix
+	}
+}
+
 func NewModule(opts ...func(*Module)) *Module {
 	m := &Module{}
 
