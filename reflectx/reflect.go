@@ -17,7 +17,7 @@ func GetTag(field reflect.StructField, tags ...string) (content string) {
 }
 
 func BaseValue(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Ptr {
+	for v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	return v
@@ -65,6 +65,15 @@ func BaseType(v reflect.Value) (t reflect.Type) {
 
 func BaseKind(v reflect.Value) reflect.Kind {
 	t := v.Type()
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	return t.Kind()
+}
+
+func BaseKindByType(v reflect.Type) reflect.Kind {
+	t := v
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}

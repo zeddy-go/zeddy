@@ -31,6 +31,26 @@ func SimpleMap(dest any, source any) (err error) {
 	return SimpleMapValue(dst, src)
 }
 
+func SimpleMapSliceValue(dst, src reflect.Value) (err error) {
+	for dst.Kind() == reflect.Pointer {
+		dst = dst.Elem()
+	}
+	for i := 0; i < src.Len(); i++ {
+		dstItem := reflect.New(dst.Type().Elem()).Elem()
+		item := dstItem
+		for item.Kind() == reflect.Pointer {
+			item.Set(reflect.New(item.Type().Elem()))
+			item = item.Elem()
+		}
+		err = SimpleMapValue(dstItem, reflectx.BaseValue(src.Index(i)))
+		if err != nil {
+			return
+		}
+		dst.Set(reflect.Append(dst, dstItem))
+	}
+	return
+}
+
 func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 	for i := 0; i < src.NumField(); i++ {
 		var (
@@ -57,18 +77,37 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 				if srcField.Kind() == reflect.Struct {
 					SimpleMapValue(dstField, srcField)
 				} else {
-					srcField, err = convert.ToKindValue(srcField, dstField.Kind())
+					var targetSrcField reflect.Value
+					targetSrcField, err = convert.ToKindValue(srcField, dstField.Kind())
 					if err != nil {
-						err = nil
+						if isStructSlice(dstField, srcField) {
+							err = SimpleMapSliceValue(dstField, srcField)
+							if err != nil {
+								return
+							}
+						} else {
+							err = nil
+						}
 						return
 					}
-					reflectx.SetValue(dstField, srcField)
+					reflectx.SetValue(dstField, targetSrcField)
 				}
 			}
 		}
 	}
 
 	return
+}
+
+func isStructSlice(dst reflect.Value, src reflect.Value) bool {
+	if reflectx.BaseKindByType(src.Type()) != reflect.Slice || reflectx.BaseKindByType(dst.Type()) != reflect.Slice {
+		return false
+	}
+	if reflectx.BaseKindByType(src.Type().Elem()) != reflect.Struct || reflectx.BaseKindByType(dst.Type().Elem()) != reflect.Struct {
+		return false
+	}
+
+	return true
 }
 
 func findFieldByName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value, fieldStruct reflect.StructField) {

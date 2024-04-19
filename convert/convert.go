@@ -7,6 +7,15 @@ import (
 	"strconv"
 )
 
+func MustTo[T any](src any) (result T) {
+	r, err := ToKindValue(reflect.ValueOf(src), reflect.ValueOf(result).Kind())
+	if err != nil {
+		panic(err)
+	}
+	result = r.Interface().(T)
+	return
+}
+
 func To[T any](src any) (result T, err error) {
 	r, err := ToKindValue(reflect.ValueOf(src), reflect.ValueOf(result).Kind())
 	if err != nil {

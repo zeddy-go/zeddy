@@ -3,6 +3,7 @@ package mapper
 import (
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
+	"reflect"
 	"testing"
 )
 
@@ -223,6 +224,63 @@ func TestSimpleMap6(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, struct1.A, struct2.A)
 	require.Equal(t, struct1.Common.C, struct2.Common.C)
+}
+
+func TestSimpleMapSlice(t *testing.T) {
+	type s1 struct {
+		A int
+	}
+	type s2 struct {
+		A int
+	}
+
+	slice1 := []s1{
+		{A: 1},
+	}
+	slice2 := make([]s2, 0)
+	err := SimpleMapSliceValue(reflect.ValueOf(&slice2), reflect.ValueOf(slice1))
+	require.NoError(t, err)
+	require.Equal(t, slice1[0].A, slice2[0].A)
+}
+
+func TestSimpleMapSlice2(t *testing.T) {
+	type s1 struct {
+		A int
+	}
+	type s2 struct {
+		A int
+	}
+
+	slice1 := []s1{
+		{A: 1},
+	}
+	var slice2 []s2
+	err := SimpleMapSliceValue(reflect.ValueOf(&slice2), reflect.ValueOf(slice1))
+	require.NoError(t, err)
+	require.Equal(t, slice1[0].A, slice2[0].A)
+}
+
+func TestSimpleMap7(t *testing.T) {
+	type c1 struct {
+		B int
+	}
+	type c2 struct {
+		B int
+	}
+	type s1 struct {
+		Bs []*c1
+	}
+	type s2 struct {
+		Bs []*c2
+	}
+
+	struct1 := s1{
+		Bs: []*c1{{B: 1}},
+	}
+	var struct2 s2
+	err := SimpleMap(&struct2, struct1)
+	require.NoError(t, err)
+	require.Equal(t, struct1.Bs[0].B, struct2.Bs[0].B)
 }
 
 func BenchmarkCopier(b *testing.B) {
