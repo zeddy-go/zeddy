@@ -57,7 +57,7 @@ type Repository[PO any, Entity any] struct {
 	e2m func(dst *PO, src *Entity) error
 }
 
-func (r *Repository[PO, Entity]) _e2m(dst *PO, src *Entity) (err error) {
+func (r *Repository[PO, Entity]) E2M(dst *PO, src *Entity) (err error) {
 	if r.e2m != nil {
 		return r.e2m(dst, src)
 	} else {
@@ -65,7 +65,7 @@ func (r *Repository[PO, Entity]) _e2m(dst *PO, src *Entity) (err error) {
 	}
 }
 
-func (r *Repository[PO, Entity]) _m2e(dst *Entity, src *PO) (err error) {
+func (r *Repository[PO, Entity]) M2E(dst *Entity, src *PO) (err error) {
 	if r.m2e != nil {
 		return r.m2e(dst, src)
 	} else {
@@ -77,7 +77,7 @@ func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
 	pos := make([]*PO, 0, len(entities))
 	for _, item := range entities {
 		po := new(PO)
-		err = r._e2m(po, item)
+		err = r.E2M(po, item)
 		if err != nil {
 			return
 		}
@@ -90,7 +90,7 @@ func (r *Repository[PO, Entity]) Create(entities ...*Entity) (err error) {
 	}
 
 	for index, item := range pos {
-		err = r._m2e(entities[index], item)
+		err = r.M2E(entities[index], item)
 		if err != nil {
 			return
 		}
@@ -103,7 +103,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...any) (err erro
 	switch x := entity.(type) {
 	case *Entity:
 		po := new(PO)
-		err = r._e2m(po, x)
+		err = r.E2M(po, x)
 		if err != nil {
 			return
 		}
@@ -111,7 +111,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...any) (err erro
 		if err != nil {
 			return
 		}
-		err = r._m2e(x, po)
+		err = r.M2E(x, po)
 		if err != nil {
 			return
 		}
@@ -154,7 +154,7 @@ func (r *Repository[PO, Entity]) First(conditions ...any) (entity *Entity, err e
 	}
 
 	entity = new(Entity)
-	err = r._m2e(entity, po)
+	err = r.M2E(entity, po)
 	return
 }
 
@@ -173,7 +173,7 @@ func (r *Repository[PO, Entity]) List(conditions ...any) (list []*Entity, err er
 	list = make([]*Entity, 0, len(poList))
 	for _, item := range poList {
 		var dst Entity
-		err = r._m2e(&dst, &item)
+		err = r.M2E(&dst, &item)
 		if err != nil {
 			return
 		}
@@ -202,7 +202,7 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...any
 	list = make([]*Entity, 0, len(poList))
 	for _, item := range poList {
 		var dst Entity
-		err = r._m2e(&dst, &item)
+		err = r.M2E(&dst, &item)
 		if err != nil {
 			return
 		}
@@ -219,7 +219,7 @@ func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo d
 			entities := make([]*Entity, 0, len(list))
 			for _, item := range list {
 				var dst Entity
-				err = r._m2e(&dst, &item)
+				err = r.M2E(&dst, &item)
 				if err != nil {
 					return
 				}

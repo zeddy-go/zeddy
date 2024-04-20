@@ -60,6 +60,9 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 			dstFieldStruct reflect.StructField
 		)
 
+		if !srcField.IsValid() || srcField.IsZero() {
+			continue
+		}
 		if srcFieldStruct.Anonymous {
 			dstField, dstFieldStruct = findFieldAnonymous(dst, srcField.Type())
 			if dstField.IsValid() {
