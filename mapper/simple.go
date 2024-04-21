@@ -8,18 +8,14 @@ import (
 	"strings"
 )
 
-//func SimpleMapSlice(dest any, source any) (err error) {
-//	dst := reflect.ValueOf(dest)
-//	for dst.Kind() == reflect.Ptr {
-//		dst = dst.Elem()
-//	}
-//	src := reflect.ValueOf(source)
-//	for src.Kind() == reflect.Ptr {
-//		src = src.Elem()
-//	}
-//
-//
-//}
+func SimpleMapSlice(dest any, source any) (err error) {
+	dst := reflect.ValueOf(dest)
+	src := reflect.ValueOf(source)
+	if !isStructSlice(dst, src) {
+		return errors.New("is not struct")
+	}
+	return SimpleMapSliceValue(dst, src)
+}
 
 func SimpleMap(dest any, source any) (err error) {
 	dst := reflect.ValueOf(dest)
@@ -34,6 +30,9 @@ func SimpleMap(dest any, source any) (err error) {
 func SimpleMapSliceValue(dst, src reflect.Value) (err error) {
 	for dst.Kind() == reflect.Pointer {
 		dst = dst.Elem()
+	}
+	if dst.IsNil() {
+		dst.Set(reflect.MakeSlice(dst.Type(), 0, 10))
 	}
 	for i := 0; i < src.Len(); i++ {
 		dstItem := reflect.New(dst.Type().Elem()).Elem()
@@ -81,17 +80,12 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 					SimpleMapValue(dstField, srcField)
 				} else {
 					var targetSrcField reflect.Value
-					targetSrcField, err = convert.ToKindValue(srcField, dstField.Kind())
-					if err != nil {
+					targetSrcField, e := convert.ToKindValue(srcField, dstField.Kind())
+					if e != nil {
 						if isStructSlice(dstField, srcField) {
-							err = SimpleMapSliceValue(dstField, srcField)
-							if err != nil {
-								return
-							}
-						} else {
-							err = nil
+							SimpleMapSliceValue(dstField, srcField)
 						}
-						return
+						continue
 					}
 					reflectx.SetValue(dstField, targetSrcField)
 				}
@@ -106,7 +100,7 @@ func isStructSlice(dst reflect.Value, src reflect.Value) bool {
 	if reflectx.BaseKindByType(src.Type()) != reflect.Slice || reflectx.BaseKindByType(dst.Type()) != reflect.Slice {
 		return false
 	}
-	if reflectx.BaseKindByType(src.Type().Elem()) != reflect.Struct || reflectx.BaseKindByType(dst.Type().Elem()) != reflect.Struct {
+	if reflectx.BaseKindByType(reflectx.BaseType(src).Elem()) != reflect.Struct || reflectx.BaseKindByType(reflectx.BaseType(dst).Elem()) != reflect.Struct {
 		return false
 	}
 
@@ -114,7 +108,12 @@ func isStructSlice(dst reflect.Value, src reflect.Value) bool {
 }
 
 func findFieldByName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value, fieldStruct reflect.StructField) {
-	v = reflectx.BaseValue(v)
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
+		v = v.Elem()
+	}
 	for i := 0; i < v.NumField(); i++ {
 		fs := v.Type().Field(i)
 		if fs.Anonymous {

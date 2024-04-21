@@ -226,7 +226,7 @@ func TestSimpleMap6(t *testing.T) {
 	require.Equal(t, struct1.Common.C, struct2.Common.C)
 }
 
-func TestSimpleMapSlice(t *testing.T) {
+func TestSimpleMapSliceValue(t *testing.T) {
 	type s1 struct {
 		A int
 	}
@@ -243,7 +243,7 @@ func TestSimpleMapSlice(t *testing.T) {
 	require.Equal(t, slice1[0].A, slice2[0].A)
 }
 
-func TestSimpleMapSlice2(t *testing.T) {
+func TestSimpleMapSliceValue2(t *testing.T) {
 	type s1 struct {
 		A int
 	}
@@ -258,6 +258,20 @@ func TestSimpleMapSlice2(t *testing.T) {
 	err := SimpleMapSliceValue(reflect.ValueOf(&slice2), reflect.ValueOf(slice1))
 	require.NoError(t, err)
 	require.Equal(t, slice1[0].A, slice2[0].A)
+}
+
+func TestSimpleMapSlice(t *testing.T) {
+	type struct1 struct {
+		A bool
+	}
+	type struct2 struct {
+		A bool
+	}
+	s1 := []struct1{{A: true}}
+	var s2 []struct2
+	err := SimpleMapSlice(&s2, s1)
+	require.NoError(t, err)
+	require.Equal(t, s1[0].A, s2[0].A)
 }
 
 func TestSimpleMap7(t *testing.T) {
@@ -281,6 +295,32 @@ func TestSimpleMap7(t *testing.T) {
 	err := SimpleMap(&struct2, struct1)
 	require.NoError(t, err)
 	require.Equal(t, struct1.Bs[0].B, struct2.Bs[0].B)
+}
+
+func TestSimpleMapSlice3(t *testing.T) {
+	type Common2 struct {
+		ID uint64 `json:"id,string"`
+	}
+
+	type struct2 struct {
+		Types         []int    `json:"types"`
+		CurrentNumber *Common2 `json:"currentNumber"`
+	}
+
+	type Common1 struct {
+		ID uint64
+	}
+
+	type struct1 struct {
+		Types         []int
+		CurrentNumber *Common1
+	}
+
+	s1 := []struct1{{Types: []int{}, CurrentNumber: &Common1{ID: 1}}}
+	var s2 []*struct2
+	err := SimpleMapSlice(&s2, s1)
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), s2[0].CurrentNumber.ID)
 }
 
 func BenchmarkCopier(b *testing.B) {

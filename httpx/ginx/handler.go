@@ -161,6 +161,8 @@ func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 		switch x := r.(type) {
 		case error:
 			resp = defaultNewResponseFunc().SetError(x)
+		case IFile:
+			resp = defaultNewResponseFunc().SetFile(x)
 		default:
 			resp = defaultNewResponseFunc().SetData(r)
 		}
@@ -169,7 +171,12 @@ func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 			resp = defaultNewResponseFunc().SetError(results[1].Interface().(error))
 			break
 		}
-		resp = defaultNewResponseFunc().SetData(results[0].Interface())
+		switch x := results[0].Interface().(type) {
+		case IFile:
+			resp = defaultNewResponseFunc().SetFile(x)
+		default:
+			resp = defaultNewResponseFunc().SetData(x)
+		}
 	case 3:
 		if results[2].IsValid() && !results[2].IsNil() {
 			resp = defaultNewResponseFunc().SetError(results[2].Interface().(error))
