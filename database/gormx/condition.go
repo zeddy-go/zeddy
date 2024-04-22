@@ -20,6 +20,14 @@ func contains(target []string, str string) bool {
 	return false
 }
 
+func quote(field string) string {
+	var arr []string
+	for _, item := range strings.Split(field, ".") {
+		arr = append(arr, "`"+item+"`")
+	}
+	return strings.Join(arr, ".")
+}
+
 func applyCondition(db *gorm.DB, conditions ...[]any) (newDB *gorm.DB, err error) {
 	newDB = db
 	for _, c := range conditions {
@@ -43,9 +51,9 @@ func applyCondition(db *gorm.DB, conditions ...[]any) (newDB *gorm.DB, err error
 			case 2:
 				v := reflect.ValueOf(c[1])
 				if v.Kind() == reflect.Slice {
-					newDB = newDB.Where(fmt.Sprintf("%s IN ?", c[0]), c[1])
+					newDB = newDB.Where(fmt.Sprintf("%s IN ?", quote(c[0].(string))), c[1])
 				} else {
-					newDB = newDB.Where(fmt.Sprintf("%s = ?", c[0]), c[1])
+					newDB = newDB.Where(fmt.Sprintf("%s = ?", quote(c[0].(string))), c[1])
 				}
 			case 3:
 				switch c[1] {
@@ -55,9 +63,9 @@ func applyCondition(db *gorm.DB, conditions ...[]any) (newDB *gorm.DB, err error
 					if err != nil {
 						return
 					}
-					newDB = db.Where(fmt.Sprintf("%s LIKE (?)", c[0]), "%"+value+"%")
+					newDB = db.Where(fmt.Sprintf("%s LIKE (?)", quote(c[0].(string))), "%"+value+"%")
 				default:
-					newDB = newDB.Where(fmt.Sprintf("%s %s (?)", c[0], c[1]), c[2])
+					newDB = newDB.Where(fmt.Sprintf("%s %s (?)", quote(c[0].(string)), c[1]), c[2])
 				}
 			default:
 				err = errx.New("condition params is too many")
