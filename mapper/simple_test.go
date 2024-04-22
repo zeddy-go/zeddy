@@ -323,6 +323,20 @@ func TestSimpleMapSlice3(t *testing.T) {
 	require.Equal(t, uint64(1), s2[0].CurrentNumber.ID)
 }
 
+func TestSimpleMap8(t *testing.T) {
+	type struct1 struct {
+		A map[string]string
+	}
+	type struct2 struct {
+		A map[string]string
+	}
+	s1 := struct1{A: map[string]string{"test": "1"}}
+	var s2 *struct2
+	err := SimpleMap(&s2, s1)
+	require.NoError(t, err)
+	require.Equal(t, s1.A["test"], s2.A["test"])
+}
+
 func BenchmarkCopier(b *testing.B) {
 	type CommonField struct {
 		C bool

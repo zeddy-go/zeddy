@@ -79,15 +79,19 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 				if srcField.Kind() == reflect.Struct {
 					SimpleMapValue(dstField, srcField)
 				} else {
-					var targetSrcField reflect.Value
-					targetSrcField, e := convert.ToKindValue(srcField, dstField.Kind())
-					if e != nil {
-						if isStructSlice(dstField, srcField) {
-							SimpleMapSliceValue(dstField, srcField)
+					if srcField.Type() != dstField.Type() {
+						var targetSrcField reflect.Value
+						targetSrcField, e := convert.ToKindValue(srcField, dstField.Kind())
+						if e != nil {
+							if isStructSlice(dstField, srcField) {
+								SimpleMapSliceValue(dstField, srcField)
+							}
+							continue
 						}
-						continue
+						reflectx.SetValue(dstField, targetSrcField)
+					} else {
+						reflectx.SetValue(dstField, srcField)
 					}
-					reflectx.SetValue(dstField, targetSrcField)
 				}
 			}
 		}
