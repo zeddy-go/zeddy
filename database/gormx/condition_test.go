@@ -16,7 +16,7 @@ func TestCondition(t *testing.T) {
 		db, err := applyCondition(db, []any{"id", 1})
 		require.NoError(t, err)
 		db.Find(&testModel{})
-		require.Equal(t, "SELECT * FROM `test_models` WHERE id = ?", db.Statement.SQL.String())
+		require.Equal(t, "SELECT * FROM `test_models` WHERE `id` = ?", db.Statement.SQL.String())
 		require.Equal(t, 1, db.Statement.Vars[0])
 	})
 
@@ -24,7 +24,7 @@ func TestCondition(t *testing.T) {
 		db, err := applyCondition(db, []any{"id", ">", 1})
 		require.NoError(t, err)
 		db.Find(&testModel{})
-		require.Equal(t, "SELECT * FROM `test_models` WHERE id > (?)", db.Statement.SQL.String())
+		require.Equal(t, "SELECT * FROM `test_models` WHERE `id` > (?)", db.Statement.SQL.String())
 		require.Equal(t, 1, db.Statement.Vars[0])
 	})
 
@@ -32,7 +32,7 @@ func TestCondition(t *testing.T) {
 		db, err := applyCondition(db, []any{"id", "like", "1"})
 		require.NoError(t, err)
 		db.Find(&testModel{})
-		require.Equal(t, "SELECT * FROM `test_models` WHERE id LIKE (?)", db.Statement.SQL.String())
+		require.Equal(t, "SELECT * FROM `test_models` WHERE `id` LIKE (?)", db.Statement.SQL.String())
 		require.Equal(t, "%1%", db.Statement.Vars[0])
 	})
 
@@ -43,7 +43,7 @@ func TestCondition(t *testing.T) {
 		}...)
 		require.NoError(t, err)
 		db.Find(&testModel{})
-		require.Equal(t, "SELECT * FROM `test_models` WHERE id = ? AND no = ?", db.Statement.SQL.String())
+		require.Equal(t, "SELECT * FROM `test_models` WHERE `id` = ? AND `no` = ?", db.Statement.SQL.String())
 		require.Equal(t, []any{1, "2"}, db.Statement.Vars)
 	})
 
