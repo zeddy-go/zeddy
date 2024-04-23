@@ -17,16 +17,6 @@ func SimpleMapSlice(dest any, source any) (err error) {
 	return SimpleMapSliceValue(dst, src)
 }
 
-func SimpleMap(dest any, source any) (err error) {
-	dst := reflect.ValueOf(dest)
-	src := reflectx.BaseValue(reflect.ValueOf(source))
-	if reflectx.BaseKind(dst) != reflect.Struct || src.Kind() != reflect.Struct {
-		err = errors.New("should be struct")
-		return
-	}
-	return SimpleMapValue(dst, src)
-}
-
 func SimpleMapSliceValue(dst, src reflect.Value) (err error) {
 	for dst.Kind() == reflect.Pointer {
 		dst = dst.Elem()
@@ -48,6 +38,16 @@ func SimpleMapSliceValue(dst, src reflect.Value) (err error) {
 		dst.Set(reflect.Append(dst, dstItem))
 	}
 	return
+}
+
+func SimpleMap(dest any, source any) (err error) {
+	dst := reflect.ValueOf(dest)
+	src := reflectx.BaseValue(reflect.ValueOf(source))
+	if reflectx.BaseKind(dst) != reflect.Struct || src.Kind() != reflect.Struct {
+		err = errors.New("should be struct")
+		return
+	}
+	return SimpleMapValue(dst, src)
 }
 
 func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {

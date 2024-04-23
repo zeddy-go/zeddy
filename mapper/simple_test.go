@@ -3,7 +3,6 @@ package mapper
 import (
 	"github.com/jinzhu/copier"
 	"github.com/stretchr/testify/require"
-	"reflect"
 	"testing"
 )
 
@@ -226,7 +225,7 @@ func TestSimpleMap6(t *testing.T) {
 	require.Equal(t, struct1.Common.C, struct2.Common.C)
 }
 
-func TestSimpleMapSliceValue(t *testing.T) {
+func TestSimpleMapSlice1(t *testing.T) {
 	type s1 struct {
 		A int
 	}
@@ -238,12 +237,12 @@ func TestSimpleMapSliceValue(t *testing.T) {
 		{A: 1},
 	}
 	slice2 := make([]s2, 0)
-	err := SimpleMapSliceValue(reflect.ValueOf(&slice2), reflect.ValueOf(slice1))
+	err := SimpleMapSlice(&slice2, slice1)
 	require.NoError(t, err)
 	require.Equal(t, slice1[0].A, slice2[0].A)
 }
 
-func TestSimpleMapSliceValue2(t *testing.T) {
+func TestSimpleMapSlice2(t *testing.T) {
 	type s1 struct {
 		A int
 	}
@@ -255,12 +254,12 @@ func TestSimpleMapSliceValue2(t *testing.T) {
 		{A: 1},
 	}
 	var slice2 []s2
-	err := SimpleMapSliceValue(reflect.ValueOf(&slice2), reflect.ValueOf(slice1))
+	err := SimpleMapSlice(&slice2, slice1)
 	require.NoError(t, err)
 	require.Equal(t, slice1[0].A, slice2[0].A)
 }
 
-func TestSimpleMapSlice(t *testing.T) {
+func TestSimpleMapSlice3(t *testing.T) {
 	type struct1 struct {
 		A bool
 	}
@@ -297,7 +296,7 @@ func TestSimpleMap7(t *testing.T) {
 	require.Equal(t, struct1.Bs[0].B, struct2.Bs[0].B)
 }
 
-func TestSimpleMapSlice3(t *testing.T) {
+func TestSimpleMapSlice4(t *testing.T) {
 	type Common2 struct {
 		ID uint64 `json:"id,string"`
 	}
