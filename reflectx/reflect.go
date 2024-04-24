@@ -7,8 +7,8 @@ import (
 )
 
 func IsSameBaseType(v1, v2 reflect.Value) (err error) {
-	t1 := Indirect(v1).Type()
-	t2 := Indirect(v2).Type()
+	t1 := IndirectAndFill(v1).Type()
+	t2 := IndirectAndFill(v2).Type()
 	if t1 != t2 {
 		return errors.New(fmt.Sprintf("type <%s> and <%s> is not same", t1.String(), t2.String()))
 	}
@@ -39,6 +39,17 @@ func SetValue(dstValue reflect.Value, srcValue reflect.Value) (err error) {
 
 func Indirect(v reflect.Value) reflect.Value {
 	for v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+
+	return v
+}
+
+func IndirectAndFill(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Pointer {
+		if v.IsNil() {
+			v.Set(reflect.New(v.Type().Elem()))
+		}
 		v = v.Elem()
 	}
 

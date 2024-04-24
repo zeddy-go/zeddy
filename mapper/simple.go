@@ -29,7 +29,7 @@ func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
 }
 
 func SimpleMapSliceValueTo(dst, src reflect.Value) (err error) {
-	dst = indirectAndFill(dst)
+	dst = reflectx.IndirectAndFill(dst)
 	switch dst.Kind() {
 	case reflect.Slice:
 		return SimpleMapSliceValueToSlice(dst, src)
@@ -55,7 +55,7 @@ func SimpleMapSliceValueToSlice(dst reflect.Value, src reflect.Value) (err error
 }
 
 func SimpleMapStructValueTo(dst reflect.Value, src reflect.Value) (err error) {
-	dst = indirectAndFill(dst)
+	dst = reflectx.IndirectAndFill(dst)
 	switch dst.Kind() {
 	case reflect.Struct:
 		return SimpleMapStructValueToStruct(dst, src)
@@ -65,7 +65,7 @@ func SimpleMapStructValueTo(dst reflect.Value, src reflect.Value) (err error) {
 }
 
 func SimpleMapStructValueToStruct(dst reflect.Value, src reflect.Value) (err error) {
-	dst = indirectAndFill(dst)
+	dst = reflectx.IndirectAndFill(dst)
 	src = reflectx.Indirect(src)
 	for i := 0; i < src.NumField(); i++ {
 		srcField := src.Field(i)
@@ -95,7 +95,7 @@ func SimpleMapStructValueToStruct(dst reflect.Value, src reflect.Value) (err err
 }
 
 func findName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value) {
-	v = indirectAndFill(v)
+	v = reflectx.IndirectAndFill(v)
 	for i := 0; i < v.NumField(); i++ {
 		targetStruct := v.Type().Field(i)
 		target := v.Field(i)
@@ -125,7 +125,7 @@ func findName(v reflect.Value, name string, caseSensitive bool) (field reflect.V
 
 func findAnonymous(v reflect.Value, t reflect.Type) (field reflect.Value) {
 	t = indirectType(t)
-	v = indirectAndFill(v)
+	v = reflectx.IndirectAndFill(v)
 	for i := 0; i < v.NumField(); i++ {
 		if !v.Type().Field(i).Anonymous {
 			continue
@@ -148,15 +148,4 @@ func indirectType(t reflect.Type) reflect.Type {
 	}
 
 	return t
-}
-
-func indirectAndFill(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Pointer {
-		if v.IsNil() {
-			v.Set(reflect.New(v.Type().Elem()))
-		}
-		v = v.Elem()
-	}
-
-	return v
 }
