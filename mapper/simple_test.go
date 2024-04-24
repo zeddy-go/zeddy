@@ -264,6 +264,19 @@ func TestSimpleMap(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, s1.A["test"], s2.A["test"])
 	})
+	t.Run("TestSimpleMap9", func(t *testing.T) {
+		type struct1 struct {
+			A map[string]string
+		}
+		type struct2 struct {
+			A map[string]string
+		}
+		var s1 *struct1
+		var s2 *struct2
+		err := SimpleMap(&s2, s1)
+		require.NoError(t, err)
+		//require.Equal(t, s1.A["test"], s2.A["test"])
+	})
 	t.Run("TestSimpleMapSlice1", func(t *testing.T) {
 		type s1 struct {
 			A int
