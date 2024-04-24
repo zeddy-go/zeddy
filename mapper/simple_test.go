@@ -334,6 +334,21 @@ func TestSimpleMap(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(1), s2[0].CurrentNumber.ID)
 	})
+	t.Run("TestSimpleMapUnAddr", func(t *testing.T) {
+		//known issue
+		require.Panics(t, func() {
+			type struct2 struct {
+				A int
+			}
+			type struct1 struct {
+				A int
+			}
+			s1 := struct1{A: 1}
+			var s2 *struct2
+			err := SimpleMap(s2, s1)
+			require.Error(t, err)
+		})
+	})
 }
 
 func BenchmarkCopier(b *testing.B) {
