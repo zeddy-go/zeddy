@@ -7,21 +7,21 @@ import (
 )
 
 func TestSimpleMap(t *testing.T) {
-	type CommonField struct {
-		ID uint64
-	}
-
-	type UserEntity struct {
-		Id       uint64
-		Username string
-	}
-
-	type UserModel struct {
-		CommonField
-		UserName string
-	}
-
 	t.Run("entity_to_model", func(t *testing.T) {
+		type CommonField struct {
+			ID uint64
+		}
+
+		type UserEntity struct {
+			Id       uint64
+			Username string
+		}
+
+		type UserModel struct {
+			CommonField
+			UserName string
+		}
+
 		e := UserEntity{
 			Id:       1,
 			Username: "zed",
@@ -32,8 +32,21 @@ func TestSimpleMap(t *testing.T) {
 		require.Equal(t, e.Username, m.UserName)
 		require.Equal(t, e.Id, m.ID)
 	})
-
 	t.Run("model_to_entity", func(t *testing.T) {
+		type CommonField struct {
+			ID uint64
+		}
+
+		type UserEntity struct {
+			Id       uint64
+			Username string
+		}
+
+		type UserModel struct {
+			CommonField
+			UserName string
+		}
+
 		m := UserModel{
 			CommonField: CommonField{
 				ID: 1,
@@ -46,7 +59,6 @@ func TestSimpleMap(t *testing.T) {
 		require.Equal(t, m.UserName, e.Username)
 		require.Equal(t, m.ID, e.Id)
 	})
-
 	t.Run("anonymous", func(t *testing.T) {
 		type CommonField struct {
 			ID uint64
@@ -74,266 +86,254 @@ func TestSimpleMap(t *testing.T) {
 		require.Equal(t, m.UserName, e.Username)
 		require.Equal(t, m.ID, e.ID)
 	})
-}
+	t.Run("TestFieldInValid", func(t *testing.T) {
+		type CommonField struct {
+			C bool
+		}
 
-func TestFieldInValid(t *testing.T) {
-	type CommonField struct {
-		C bool
-	}
+		type s1 struct {
+			A int
+			B string
+			CommonField
+		}
 
-	type s1 struct {
-		A int
-		B string
-		CommonField
-	}
+		type s2 struct {
+			A int
+			B string
+			CommonField
+		}
 
-	type s2 struct {
-		A int
-		B string
-		CommonField
-	}
+		struct1 := s1{
+			A:           1,
+			B:           "2",
+			CommonField: CommonField{C: true},
+		}
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		if err != nil {
+			require.NoError(t, err)
+		}
+		require.Equal(t, struct1.A, struct2.A)
+		require.Equal(t, struct1.B, struct2.B)
+		require.Equal(t, struct1.C, struct2.C)
+	})
+	t.Run("TestSimpleMap2", func(t *testing.T) {
+		type m struct {
+			ID       uint64
+			Username string
+			Password string
+		}
+		type e struct {
+			ID       uint64
+			Username string
+			Password string
+		}
 
-	struct1 := s1{
-		A:           1,
-		B:           "2",
-		CommonField: CommonField{C: true},
-	}
-	var struct2 s2
-	err := SimpleMap(&struct2, struct1)
-	if err != nil {
+		model := &m{
+			ID:       1,
+			Username: "zed",
+			Password: "zed",
+		}
+		var entity e
+		err := SimpleMap(&entity, &model)
 		require.NoError(t, err)
-	}
-	require.Equal(t, struct1.A, struct2.A)
-	require.Equal(t, struct1.B, struct2.B)
-	require.Equal(t, struct1.C, struct2.C)
-}
+		require.Equal(t, model.ID, entity.ID)
+		require.Equal(t, model.Username, entity.Username)
+		require.Equal(t, model.Password, entity.Password)
+	})
+	t.Run("TestSimpleMap3", func(t *testing.T) {
+		type Common1 struct {
+			C bool
+		}
+		type Common2 struct {
+			C bool
+		}
+		type s1 struct {
+			A      int
+			Common *Common1
+		}
+		type s2 struct {
+			A      int
+			Common Common2
+		}
 
-func TestSimpleMap2(t *testing.T) {
-	type m struct {
-		ID       uint64
-		Username string
-		Password string
-	}
-	type e struct {
-		ID       uint64
-		Username string
-		Password string
-	}
+		struct1 := s1{
+			A:      1,
+			Common: &Common1{C: true},
+		}
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		require.NoError(t, err)
+		require.Equal(t, struct1.A, struct2.A)
+		require.Equal(t, struct1.Common.C, struct2.Common.C)
+	})
+	t.Run("TestSimpleMap4", func(t *testing.T) {
+		type S1 struct {
+			A string
+		}
+		type S2 struct {
+			A []string
+		}
+		s1 := S1{}
+		var s2 S2
+		err := SimpleMap(&s2, s1)
+		require.NoError(t, err)
+		require.Equal(t, 0, len(s2.A))
+	})
+	t.Run("TestSimpleMap5", func(t *testing.T) {
+		type Common1 struct {
+			C bool
+		}
+		type s1 struct {
+			A int
+			*Common1
+		}
+		type s2 struct {
+			A int
+			*Common1
+		}
 
-	model := &m{
-		ID:       1,
-		Username: "zed",
-		Password: "zed",
-	}
-	var entity e
-	err := SimpleMap(&entity, &model)
-	require.NoError(t, err)
-	require.Equal(t, model.ID, entity.ID)
-	require.Equal(t, model.Username, entity.Username)
-	require.Equal(t, model.Password, entity.Password)
-}
+		struct1 := s1{
+			A:       1,
+			Common1: &Common1{C: true},
+		}
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		require.NoError(t, err)
+		require.Equal(t, struct1.A, struct2.A)
+		require.Equal(t, struct1.Common1.C, struct2.Common1.C)
+	})
+	t.Run("TestSimpleMap6", func(t *testing.T) {
+		type Common1 struct {
+			C bool
+		}
+		type Common2 struct {
+			C bool
+		}
+		type s1 struct {
+			A      int
+			Common *Common1
+		}
+		type s2 struct {
+			A      int
+			Common *Common2
+		}
 
-func TestSimpleMap3(t *testing.T) {
-	type Common1 struct {
-		C bool
-	}
-	type Common2 struct {
-		C bool
-	}
-	type s1 struct {
-		A      int
-		Common *Common1
-	}
-	type s2 struct {
-		A      int
-		Common Common2
-	}
+		struct1 := s1{
+			A:      1,
+			Common: &Common1{C: true},
+		}
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		require.NoError(t, err)
+		require.Equal(t, struct1.A, struct2.A)
+		require.Equal(t, struct1.Common.C, struct2.Common.C)
+	})
+	t.Run("TestSimpleMap7", func(t *testing.T) {
+		type c1 struct {
+			B int
+		}
+		type c2 struct {
+			B int
+		}
+		type s1 struct {
+			Bs []*c1
+		}
+		type s2 struct {
+			Bs []*c2
+		}
 
-	struct1 := s1{
-		A:      1,
-		Common: &Common1{C: true},
-	}
-	var struct2 s2
-	err := SimpleMap(&struct2, struct1)
-	require.NoError(t, err)
-	require.Equal(t, struct1.A, struct2.A)
-	require.Equal(t, struct1.Common.C, struct2.Common.C)
-}
+		struct1 := s1{
+			Bs: []*c1{{B: 1}},
+		}
+		var struct2 s2
+		err := SimpleMap(&struct2, struct1)
+		require.NoError(t, err)
+		require.Equal(t, struct1.Bs[0].B, struct2.Bs[0].B)
+	})
+	t.Run("TestSimpleMap8", func(t *testing.T) {
+		type struct1 struct {
+			A map[string]string
+		}
+		type struct2 struct {
+			A map[string]string
+		}
+		s1 := struct1{A: map[string]string{"test": "1"}}
+		var s2 *struct2
+		err := SimpleMap(&s2, s1)
+		require.NoError(t, err)
+		require.Equal(t, s1.A["test"], s2.A["test"])
+	})
+	t.Run("TestSimpleMapSlice1", func(t *testing.T) {
+		type s1 struct {
+			A int
+		}
+		type s2 struct {
+			A int
+		}
 
-func TestSimpleMap4(t *testing.T) {
-	type S1 struct {
-		A string
-	}
-	type S2 struct {
-		A []string
-	}
-	s1 := S1{}
-	var s2 S2
-	err := SimpleMap(&s2, s1)
-	require.NoError(t, err)
-	require.Equal(t, 0, len(s2.A))
-}
+		slice1 := []s1{
+			{A: 1},
+		}
+		slice2 := make([]s2, 0)
+		err := SimpleMap(&slice2, slice1)
+		require.NoError(t, err)
+		require.Equal(t, slice1[0].A, slice2[0].A)
+	})
+	t.Run("TestSimpleMapSlice2", func(t *testing.T) {
+		type s1 struct {
+			A int
+		}
+		type s2 struct {
+			A int
+		}
 
-func TestSimpleMap5(t *testing.T) {
-	type Common1 struct {
-		C bool
-	}
-	type s1 struct {
-		A int
-		*Common1
-	}
-	type s2 struct {
-		A int
-		*Common1
-	}
+		slice1 := []s1{
+			{A: 1},
+		}
+		var slice2 []s2
+		err := SimpleMap(&slice2, slice1)
+		require.NoError(t, err)
+		require.Equal(t, slice1[0].A, slice2[0].A)
+	})
+	t.Run("TestSimpleMapSlice3", func(t *testing.T) {
+		type struct1 struct {
+			A bool
+		}
+		type struct2 struct {
+			A bool
+		}
+		s1 := []struct1{{A: true}}
+		var s2 []struct2
+		err := SimpleMap(&s2, s1)
+		require.NoError(t, err)
+		require.Equal(t, s1[0].A, s2[0].A)
+	})
+	t.Run("TestSimpleMapSlice4", func(t *testing.T) {
+		type Common2 struct {
+			ID uint64 `json:"id,string"`
+		}
 
-	struct1 := s1{
-		A:       1,
-		Common1: &Common1{C: true},
-	}
-	var struct2 s2
-	err := SimpleMap(&struct2, struct1)
-	require.NoError(t, err)
-	require.Equal(t, struct1.A, struct2.A)
-	require.Equal(t, struct1.Common1.C, struct2.Common1.C)
-}
+		type struct2 struct {
+			Types         []int    `json:"types"`
+			CurrentNumber *Common2 `json:"currentNumber"`
+		}
 
-func TestSimpleMap6(t *testing.T) {
-	type Common1 struct {
-		C bool
-	}
-	type Common2 struct {
-		C bool
-	}
-	type s1 struct {
-		A      int
-		Common *Common1
-	}
-	type s2 struct {
-		A      int
-		Common *Common2
-	}
+		type Common1 struct {
+			ID uint64
+		}
 
-	struct1 := s1{
-		A:      1,
-		Common: &Common1{C: true},
-	}
-	var struct2 s2
-	err := SimpleMap(&struct2, struct1)
-	require.NoError(t, err)
-	require.Equal(t, struct1.A, struct2.A)
-	require.Equal(t, struct1.Common.C, struct2.Common.C)
-}
+		type struct1 struct {
+			Types         []int
+			CurrentNumber *Common1
+		}
 
-func TestSimpleMapSlice1(t *testing.T) {
-	type s1 struct {
-		A int
-	}
-	type s2 struct {
-		A int
-	}
-
-	slice1 := []s1{
-		{A: 1},
-	}
-	slice2 := make([]s2, 0)
-	err := SimpleMapSlice(&slice2, slice1)
-	require.NoError(t, err)
-	require.Equal(t, slice1[0].A, slice2[0].A)
-}
-
-func TestSimpleMapSlice2(t *testing.T) {
-	type s1 struct {
-		A int
-	}
-	type s2 struct {
-		A int
-	}
-
-	slice1 := []s1{
-		{A: 1},
-	}
-	var slice2 []s2
-	err := SimpleMapSlice(&slice2, slice1)
-	require.NoError(t, err)
-	require.Equal(t, slice1[0].A, slice2[0].A)
-}
-
-func TestSimpleMapSlice3(t *testing.T) {
-	type struct1 struct {
-		A bool
-	}
-	type struct2 struct {
-		A bool
-	}
-	s1 := []struct1{{A: true}}
-	var s2 []struct2
-	err := SimpleMapSlice(&s2, s1)
-	require.NoError(t, err)
-	require.Equal(t, s1[0].A, s2[0].A)
-}
-
-func TestSimpleMap7(t *testing.T) {
-	type c1 struct {
-		B int
-	}
-	type c2 struct {
-		B int
-	}
-	type s1 struct {
-		Bs []*c1
-	}
-	type s2 struct {
-		Bs []*c2
-	}
-
-	struct1 := s1{
-		Bs: []*c1{{B: 1}},
-	}
-	var struct2 s2
-	err := SimpleMap(&struct2, struct1)
-	require.NoError(t, err)
-	require.Equal(t, struct1.Bs[0].B, struct2.Bs[0].B)
-}
-
-func TestSimpleMapSlice4(t *testing.T) {
-	type Common2 struct {
-		ID uint64 `json:"id,string"`
-	}
-
-	type struct2 struct {
-		Types         []int    `json:"types"`
-		CurrentNumber *Common2 `json:"currentNumber"`
-	}
-
-	type Common1 struct {
-		ID uint64
-	}
-
-	type struct1 struct {
-		Types         []int
-		CurrentNumber *Common1
-	}
-
-	s1 := []struct1{{Types: []int{}, CurrentNumber: &Common1{ID: 1}}}
-	var s2 []*struct2
-	err := SimpleMapSlice(&s2, s1)
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), s2[0].CurrentNumber.ID)
-}
-
-func TestSimpleMap8(t *testing.T) {
-	type struct1 struct {
-		A map[string]string
-	}
-	type struct2 struct {
-		A map[string]string
-	}
-	s1 := struct1{A: map[string]string{"test": "1"}}
-	var s2 *struct2
-	err := SimpleMap(&s2, s1)
-	require.NoError(t, err)
-	require.Equal(t, s1.A["test"], s2.A["test"])
+		s1 := []struct1{{Types: []int{}, CurrentNumber: &Common1{ID: 1}}}
+		var s2 []*struct2
+		err := SimpleMap(&s2, s1)
+		require.NoError(t, err)
+		require.Equal(t, uint64(1), s2[0].CurrentNumber.ID)
+	})
 }
 
 func BenchmarkCopier(b *testing.B) {

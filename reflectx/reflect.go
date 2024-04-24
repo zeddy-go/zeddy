@@ -6,26 +6,9 @@ import (
 	"reflect"
 )
 
-func GetTag(field reflect.StructField, tags ...string) (content string) {
-	for content == "" && len(tags) > 0 {
-		tag := tags[0]
-		tags = tags[1:]
-		content = field.Tag.Get(tag)
-	}
-
-	return
-}
-
-func BaseValue(v reflect.Value) reflect.Value {
-	for v.Kind() == reflect.Pointer {
-		v = v.Elem()
-	}
-	return v
-}
-
 func IsSameBaseType(v1, v2 reflect.Value) (err error) {
-	t1 := BaseType(v1)
-	t2 := BaseType(v2)
+	t1 := Indirect(v1).Type()
+	t2 := Indirect(v2).Type()
 	if t1 != t2 {
 		return errors.New(fmt.Sprintf("type <%s> and <%s> is not same", t1.String(), t2.String()))
 	}
@@ -34,7 +17,7 @@ func IsSameBaseType(v1, v2 reflect.Value) (err error) {
 }
 
 func SetValue(dstValue reflect.Value, srcValue reflect.Value) (err error) {
-	if err := IsSameBaseType(dstValue, srcValue); BaseKind(dstValue) != reflect.Interface && err != nil {
+	if err := IsSameBaseType(dstValue, srcValue); Indirect(dstValue).Kind() != reflect.Interface && err != nil {
 		return err
 	}
 
@@ -54,29 +37,10 @@ func SetValue(dstValue reflect.Value, srcValue reflect.Value) (err error) {
 	return
 }
 
-func BaseType(v reflect.Value) (t reflect.Type) {
-	t = v.Type()
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
+func Indirect(v reflect.Value) reflect.Value {
+	for v.Kind() == reflect.Pointer {
+		v = v.Elem()
 	}
 
-	return t
-}
-
-func BaseKind(v reflect.Value) reflect.Kind {
-	t := v.Type()
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t.Kind()
-}
-
-func BaseKindByType(v reflect.Type) reflect.Kind {
-	t := v
-	for t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t.Kind()
+	return v
 }

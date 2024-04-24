@@ -1,153 +1,162 @@
 package mapper
 
 import (
-	"errors"
-	"github.com/zeddy-go/zeddy/convert"
+	"fmt"
+	"github.com/zeddy-go/zeddy/errx"
 	"github.com/zeddy-go/zeddy/reflectx"
 	"reflect"
 	"strings"
 )
 
-func SimpleMapSlice(dest any, source any) (err error) {
-	dst := reflect.ValueOf(dest)
-	src := reflect.ValueOf(source)
-	if !isStructSlice(dst, src) {
-		return errors.New("is not struct")
-	}
-	return SimpleMapSliceValue(dst, src)
-}
-
-func SimpleMapSliceValue(dst, src reflect.Value) (err error) {
-	for dst.Kind() == reflect.Pointer {
-		dst = dst.Elem()
-	}
-	if dst.IsNil() {
-		dst.Set(reflect.MakeSlice(dst.Type(), 0, 10))
-	}
-	for i := 0; i < src.Len(); i++ {
-		dstItem := reflect.New(dst.Type().Elem()).Elem()
-		item := dstItem
-		for item.Kind() == reflect.Pointer {
-			item.Set(reflect.New(item.Type().Elem()))
-			item = item.Elem()
-		}
-		err = SimpleMapValue(dstItem, reflectx.BaseValue(src.Index(i)))
-		if err != nil {
-			return
-		}
-		dst.Set(reflect.Append(dst, dstItem))
-	}
-	return
-}
-
-func SimpleMap(dest any, source any) (err error) {
-	dst := reflect.ValueOf(dest)
-	src := reflectx.BaseValue(reflect.ValueOf(source))
-	if reflectx.BaseKind(dst) != reflect.Struct || src.Kind() != reflect.Struct {
-		err = errors.New("should be struct")
-		return
-	}
-	return SimpleMapValue(dst, src)
+func SimpleMap(dst any, src any) (err error) {
+	return SimpleMapValue(reflect.ValueOf(dst), reflect.ValueOf(src))
 }
 
 func SimpleMapValue(dst reflect.Value, src reflect.Value) (err error) {
-	for i := 0; i < src.NumField(); i++ {
-		var (
-			srcField       = reflectx.BaseValue(src.Field(i))
-			srcFieldStruct = src.Type().Field(i)
-			dstField       reflect.Value
-			dstFieldStruct reflect.StructField
-		)
-
-		if !srcField.IsValid() || srcField.IsZero() {
-			continue
-		}
-		if srcFieldStruct.Anonymous {
-			dstField, dstFieldStruct = findFieldAnonymous(dst, srcField.Type())
-			if dstField.IsValid() {
-				SimpleMapValue(dstField, srcField)
-			} else {
-				SimpleMapValue(dst, srcField)
-			}
-		} else {
-			dstField, dstFieldStruct = findFieldByName(dst, srcFieldStruct.Name, false)
-			if dstField.IsValid() {
-				for dstField.Kind() == reflect.Pointer {
-					dstField.Set(reflect.New(dstFieldStruct.Type.Elem()))
-					dstField = dstField.Elem()
-				}
-				if srcField.Kind() == reflect.Struct {
-					SimpleMapValue(dstField, srcField)
-				} else {
-					if srcField.Type() != dstField.Type() {
-						var targetSrcField reflect.Value
-						targetSrcField, e := convert.ToKindValue(srcField, dstField.Kind())
-						if e != nil {
-							if isStructSlice(dstField, srcField) {
-								SimpleMapSliceValue(dstField, srcField)
-							}
-							continue
-						}
-						reflectx.SetValue(dstField, targetSrcField)
-					} else {
-						reflectx.SetValue(dstField, srcField)
-					}
-				}
-			}
+	src = reflectx.Indirect(src)
+	switch src.Kind() {
+	case reflect.Struct:
+		return SimpleMapStructValueTo(dst, src)
+	case reflect.Slice:
+		return SimpleMapSliceValueTo(dst, src)
+	default:
+		if reflectx.Indirect(dst).Type() == src.Type() {
+			return reflectx.SetValue(dst, src)
 		}
 	}
 
 	return
 }
 
-func isStructSlice(dst reflect.Value, src reflect.Value) bool {
-	if reflectx.BaseKindByType(src.Type()) != reflect.Slice || reflectx.BaseKindByType(dst.Type()) != reflect.Slice {
-		return false
+func SimpleMapSliceValueTo(dst, src reflect.Value) (err error) {
+	dst = indirectAndFill(dst)
+	switch dst.Kind() {
+	case reflect.Slice:
+		return SimpleMapSliceValueToSlice(dst, src)
+	default:
+		return errx.New(fmt.Sprintf("unsupported src type <%s> to dst type <%s>", src.Type().String(), dst.Type().String()))
 	}
-	if reflectx.BaseKindByType(reflectx.BaseType(src).Elem()) != reflect.Struct || reflectx.BaseKindByType(reflectx.BaseType(dst).Elem()) != reflect.Struct {
-		return false
-	}
-
-	return true
 }
 
-func findFieldByName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value, fieldStruct reflect.StructField) {
+func SimpleMapSliceValueToSlice(dst reflect.Value, src reflect.Value) (err error) {
+	src = reflectx.Indirect(src)
+	dst = reflectx.Indirect(dst)
+	dstItemType := dst.Type().Elem()
+	dst.Set(reflect.MakeSlice(dst.Type(), 0, src.Len()))
+	for i := 0; i < src.Len(); i++ {
+		dstItem := reflect.New(dstItemType)
+		err = SimpleMapValue(dstItem.Elem(), src.Index(i))
+		if err != nil {
+			return
+		}
+		dst.Set(reflect.Append(dst, dstItem.Elem()))
+	}
+	return
+}
+
+func SimpleMapStructValueTo(dst reflect.Value, src reflect.Value) (err error) {
+	dst = indirectAndFill(dst)
+	switch dst.Kind() {
+	case reflect.Struct:
+		return SimpleMapStructValueToStruct(dst, src)
+	default:
+		return errx.New(fmt.Sprintf("unsupported src type <%s> to dst type <%s>", src.Type().String(), dst.Type().String()))
+	}
+}
+
+func SimpleMapStructValueToStruct(dst reflect.Value, src reflect.Value) (err error) {
+	dst = indirectAndFill(dst)
+	src = reflectx.Indirect(src)
+	for i := 0; i < src.NumField(); i++ {
+		srcField := src.Field(i)
+		srcFieldStruct := src.Type().Field(i)
+		if srcFieldStruct.Anonymous {
+			dstField := findAnonymous(dst, srcField.Type())
+			if !dstField.IsValid() {
+				err = SimpleMapStructValueToStruct(dst, srcField)
+			} else {
+				err = SimpleMapStructValueToStruct(dstField, srcField)
+			}
+			if err != nil {
+				return
+			}
+			continue
+		}
+
+		dstField := findName(dst, srcFieldStruct.Name, false)
+		if dstField.IsValid() {
+			err = SimpleMapValue(dstField, srcField)
+			if err != nil {
+				return
+			}
+		}
+	}
+	return
+}
+
+func findName(v reflect.Value, name string, caseSensitive bool) (field reflect.Value) {
+	v = indirectAndFill(v)
+	for i := 0; i < v.NumField(); i++ {
+		targetStruct := v.Type().Field(i)
+		target := v.Field(i)
+		if targetStruct.Anonymous {
+			f := findName(target, name, caseSensitive)
+			if f.IsValid() {
+				field = f
+				return
+			}
+		} else {
+			switch caseSensitive {
+			case true:
+				if targetStruct.Name == name {
+					field = target
+					return
+				}
+			case false:
+				if strings.ToUpper(targetStruct.Name) == strings.ToUpper(name) {
+					field = target
+					return
+				}
+			}
+		}
+	}
+	return
+}
+
+func findAnonymous(v reflect.Value, t reflect.Type) (field reflect.Value) {
+	t = indirectType(t)
+	v = indirectAndFill(v)
+	for i := 0; i < v.NumField(); i++ {
+		if !v.Type().Field(i).Anonymous {
+			continue
+		}
+
+		f := v.Field(i)
+		if indirectType(f.Type()) != t {
+			continue
+		}
+
+		return f
+	}
+
+	return
+}
+
+func indirectType(t reflect.Type) reflect.Type {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+
+	return t
+}
+
+func indirectAndFill(v reflect.Value) reflect.Value {
 	for v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			v.Set(reflect.New(v.Type().Elem()))
 		}
 		v = v.Elem()
 	}
-	for i := 0; i < v.NumField(); i++ {
-		fs := v.Type().Field(i)
-		if fs.Anonymous {
-			dstField := v.Field(i)
-			for dstField.Kind() == reflect.Pointer {
-				dstField.Set(reflect.New(fs.Type.Elem()))
-				dstField = dstField.Elem()
-			}
-			field, fieldStruct = findFieldByName(v.Field(i), name, caseSensitive)
-			if field.IsValid() {
-				return
-			}
-		}
-		fieldName := fs.Name
-		if (caseSensitive && fieldName == name) || (!caseSensitive && strings.ToLower(fieldName) == strings.ToLower(name)) {
-			return v.Field(i), fs
-		}
-	}
 
-	return
-}
-
-func findFieldAnonymous(v reflect.Value, fieldType reflect.Type) (field reflect.Value, fieldStruct reflect.StructField) {
-	v = reflectx.BaseValue(v)
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		if f.Type() == fieldType {
-			return f, v.Type().Field(i)
-		}
-	}
-
-	return
+	return v
 }
