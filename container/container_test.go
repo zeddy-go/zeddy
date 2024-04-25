@@ -215,4 +215,176 @@ func TestContainer_BindAndResolve(t *testing.T) {
 
 		require.NotEqual(t, fmt.Sprintf("%p", testStruct), fmt.Sprintf("%p", testStruct2))
 	})
+
+	t.Run("cycleResolve1", func(t *testing.T) {
+		err := Bind[*Struct1](NewStruct1)
+		require.NoError(t, err)
+		err = Bind[*Struct2](NewStruct2)
+		require.NoError(t, err)
+
+		s2, err := Resolve[*Struct2]()
+		require.NoError(t, err)
+		require.Equal(t, s2.A, 2)
+		require.Equal(t, s2.S1.A, 1)
+
+		s1, err := Resolve[*Struct1]()
+		require.NoError(t, err)
+		require.Equal(t, s1.A, 1)
+		require.Equal(t, s1.S2.A, 2)
+
+		require.Same(t, s1.S2, s2)
+		require.Same(t, s1, s2.S1)
+	})
+
+	t.Run("cycleResolve2", func(t *testing.T) {
+		err := Bind[*Struct11](NewStruct11)
+		require.NoError(t, err)
+		err = Bind[*Struct12](NewStruct12)
+		require.NoError(t, err)
+		err = Bind[*Struct13](NewStruct13)
+		require.NoError(t, err)
+
+		s11, err := Resolve[*Struct11]()
+		require.NoError(t, err)
+
+		s12, err := Resolve[*Struct12]()
+		require.NoError(t, err)
+
+		s13, err := Resolve[*Struct13]()
+		require.NoError(t, err)
+
+		require.Same(t, s11, s13.s11)
+		require.Same(t, s12, s11.s12)
+		require.Same(t, s13, s12.s13)
+	})
+
+	//t.Run("cycleResolve3", func(t *testing.T) {
+	//	err := Bind[*Struct111](NewStruct111)
+	//	require.NoError(t, err)
+	//	err = Bind[*Struct112](NewStruct112)
+	//	require.NoError(t, err)
+	//	err = Bind[*Struct113](NewStruct113)
+	//	require.NoError(t, err)
+	//
+	//	s111, err := Resolve[*Struct111]()
+	//	require.NoError(t, err)
+	//
+	//	s112, err := Resolve[*Struct112]()
+	//	require.NoError(t, err)
+	//
+	//	s113, err := Resolve[*Struct113]()
+	//	require.NoError(t, err)
+	//
+	//	require.Same(t, s111, s113.s111)
+	//	require.Same(t, s111, s112.s111)
+	//	require.Same(t, s112, s111.s112)
+	//	require.Same(t, s112, s113.s112)
+	//	require.Same(t, s113, s112.s113)
+	//	require.Same(t, s113, s111.s113)
+	//})
+}
+
+func NewStruct2(s1 *Struct1) *Struct2 {
+	return &Struct2{
+		S1: s1,
+		A:  2,
+	}
+}
+
+type Struct2 struct {
+	S1 *Struct1
+	A  int
+}
+
+func NewStruct1(s2 *Struct2) *Struct1 {
+	return &Struct1{
+		S2: s2,
+		A:  1,
+	}
+}
+
+type Struct1 struct {
+	S2 *Struct2
+	A  int
+}
+
+func NewStruct11(s12 *Struct12) *Struct11 {
+	return &Struct11{
+		s12: s12,
+	}
+}
+
+type Struct11 struct {
+	s12 *Struct12
+}
+
+func NewStruct12(s13 *Struct13) *Struct12 {
+	return &Struct12{
+		s13: s13,
+	}
+}
+
+type Struct12 struct {
+	s13 *Struct13
+}
+
+func NewStruct13(s11 *Struct11) *Struct13 {
+	return &Struct13{
+		s11: s11,
+	}
+}
+
+func NewStruct111(s112 *Struct112, s113 *Struct113) *Struct111 {
+	return &Struct111{
+		s112: s112,
+		s113: s113,
+	}
+}
+
+type Struct111 struct {
+	s112 *Struct112
+	s113 *Struct113
+}
+
+func NewStruct112(s111 *Struct111, s113 *Struct113) *Struct112 {
+	return &Struct112{
+		s111: s111,
+		s113: s113,
+	}
+}
+
+type Struct112 struct {
+	s111 *Struct111
+	s113 *Struct113
+}
+
+func NewStruct113(s112 *Struct112, s111 *Struct111) *Struct113 {
+	return &Struct113{
+		s112: s112,
+		s111: s111,
+	}
+}
+
+type Struct113 struct {
+	s111 *Struct111
+	s112 *Struct112
+}
+
+type Struct13 struct {
+	s11 *Struct11
+}
+
+func testFunc() int {
+	return 1
+}
+
+func TestXxx(t *testing.T) {
+	s1 := reflect.ValueOf(NewStruct1).Call([]reflect.Value{reflect.ValueOf((*Struct2)(nil))})[0]
+	s2 := reflect.ValueOf(NewStruct2).Call([]reflect.Value{s1})[0]
+	ss1 := s1
+	s1.Elem().Set(reflect.ValueOf(NewStruct1).Call([]reflect.Value{s2})[0].Elem())
+
+	println(s2.Interface().(*Struct2).S1.A)
+	println(s1.Interface().(*Struct1).S2.A)
+	fmt.Printf("%p %p\n", ss1.Interface().(*Struct1), s1.Interface().(*Struct1))
 }

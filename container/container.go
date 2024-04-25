@@ -1,6 +1,7 @@
 package container
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/zeddy-go/zeddy/errx"
@@ -152,20 +153,69 @@ func (c *Container) convert(t reflect.Type, value reflect.Value) (result reflect
 }
 
 func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
+	_, result, err = c.resolve(context.Background(), t)
+
+	return
+}
+
+func (c *Container) resolve(ctx context.Context, t reflect.Type) (newCtx context.Context, result reflect.Value, err error) {
+	newCtx = ctx
 	result, ok := c.instances[t]
 	if ok {
 		return
 	}
 
+	chain := newCtx.Value("chain")
+	if chain == nil {
+		chain = []reflect.Type{}
+		newCtx = context.WithValue(newCtx, "chain", chain)
+	}
+
+	for _, item := range chain.([]reflect.Type) {
+		if item == t {
+			result = reflect.New(t).Elem()
+			chain = append(chain.([]reflect.Type), t)
+			newCtx = context.WithValue(newCtx, "chain", chain)
+			return
+		}
+	}
+
 	f, ok := c.providers[t]
 	if ok {
-		result, err = c.invokeAndGetType(f.Value, t)
+		chain = append(chain.([]reflect.Type), t)
+		newCtx = context.WithValue(newCtx, "chain", chain)
+		currentLen := len(chain.([]reflect.Type))
+
+		newCtx, result, err = c.invokeAndGetType(newCtx, f.Value, t)
 		if err != nil {
 			return
 		}
 		if f.Singleton {
 			c.instances[t] = result
 		}
+
+		newChain := newCtx.Value("chain").([]reflect.Type)
+
+		if currentLen == len(newChain) {
+			newChain = newChain[:len(newChain)-1]
+			newCtx = context.WithValue(newCtx, "chain", newChain)
+		} else if currentLen < len(newChain) && newChain[len(newChain)-1] == t {
+			for _, tt := range newChain[currentLen : len(newChain)-1] {
+				if r, ok := c.instances[tt]; ok {
+					if f, ok := c.providers[tt]; ok {
+						var result2 reflect.Value
+						_, result2, err = c.invokeAndGetType(context.Background(), f.Value, tt)
+						if err != nil {
+							return
+						}
+						r.Elem().Set(result2.Elem())
+					}
+				}
+			}
+			newChain = newChain[:currentLen-1]
+			newCtx = context.WithValue(newCtx, "chain", newChain)
+		}
+
 		return
 	}
 
@@ -173,8 +223,8 @@ func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
 	return
 }
 
-func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (result reflect.Value, err error) {
-	results, err := c.Invoke(f)
+func (c *Container) invokeAndGetType(ctx context.Context, f reflect.Value, resultType reflect.Type) (newCtx context.Context, result reflect.Value, err error) {
+	newCtx, results, err := c.invoke(ctx, f)
 	if err != nil {
 		return
 	}
@@ -189,10 +239,10 @@ func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (
 		return
 	}
 
-	if results[0].IsNil() {
-		err = errx.New("get nil result")
-		return
-	}
+	//if results[0].IsNil() {
+	//	err = errx.New("get nil result")
+	//	return
+	//}
 
 	result = results[0]
 
@@ -200,7 +250,8 @@ func (c *Container) invokeAndGetType(f reflect.Value, resultType reflect.Type) (
 		result = result.Elem()
 	}
 
-	return c.convert(resultType, result)
+	result, err = c.convert(resultType, result)
+	return
 }
 
 func WithParams(params map[int]any) func(*invokeOpts) {
@@ -214,6 +265,12 @@ type invokeOpts struct {
 }
 
 func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
+	_, results, err = c.invoke(context.Background(), f, opts...)
+	return
+}
+
+func (c *Container) invoke(ctx context.Context, f reflect.Value, opts ...func(*invokeOpts)) (newCtx context.Context, results []reflect.Value, err error) {
+	newCtx = ctx
 	options := &invokeOpts{}
 	for _, opt := range opts {
 		opt(options)
@@ -226,13 +283,13 @@ func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results 
 			if p, ok := options.params[i]; ok {
 				param = reflect.ValueOf(p)
 			} else {
-				param, err = c.Resolve(f.Type().In(i))
+				newCtx, param, err = c.resolve(ctx, f.Type().In(i))
 				if err != nil {
 					return
 				}
 			}
 		} else {
-			param, err = c.Resolve(f.Type().In(i))
+			newCtx, param, err = c.resolve(ctx, f.Type().In(i))
 			if err != nil {
 				return
 			}
