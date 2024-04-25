@@ -8,7 +8,6 @@ import (
 )
 
 func TestContainer_BindAndResolve(t *testing.T) {
-	c := NewContainer()
 	type Test struct {
 		A int
 	}
@@ -36,52 +35,37 @@ func TestContainer_BindAndResolve(t *testing.T) {
 			}
 		}
 
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test2)(nil)), reflect.ValueOf(test2Provider)))
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test3)(nil)), reflect.ValueOf(test3Provider)))
+		require.NoError(t, Bind[*Test](testProvider))
+		require.NoError(t, Bind[*Test2](test2Provider))
+		require.NoError(t, Bind[*Test3](test3Provider))
 
-		tmp, err := c.Resolve(reflect.TypeOf((*Test3)(nil)))
+		test3, err := Resolve[*Test3]()
 		require.NoError(t, err)
-
-		test3, ok := tmp.Interface().(*Test3)
-		require.True(t, ok)
 		require.Equal(t, 1, test3.A)
 	})
 
 	t.Run("test struct ptr", func(t *testing.T) {
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider), NoSingleton()))
+		require.NoError(t, Bind[*Test](testProvider, NoSingleton()))
 
-		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test, err := Resolve[*Test]()
 		require.Nil(t, err)
-
-		test, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
 		require.Equal(t, 1, test.A)
 
-		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test2, err := Resolve[*Test]()
 		require.Nil(t, err)
-
-		test2, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
 		require.Equal(t, 1, test2.A)
 
 		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
 	})
 
 	t.Run("test struct ptr singleton", func(t *testing.T) {
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testProvider)))
+		require.NoError(t, Bind[*Test](testProvider))
 
-		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test, err := Resolve[*Test]()
 		require.NoError(t, err)
 
-		test, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
-
-		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test2, err := Resolve[*Test]()
 		require.NoError(t, err)
-
-		test2, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
 
 		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", test2))
 	})
@@ -92,36 +76,30 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		funcProvider := func() func(*int) {
 			return f
 		}
-		require.NoError(t, c.Bind(reflect.TypeOf(f), reflect.ValueOf(funcProvider)))
+		require.NoError(t, Bind[func(*int)](funcProvider))
 
-		tmp, err := c.Resolve(reflect.TypeOf(f))
+		tmp, err := Resolve[func(*int)]()
 		require.NoError(t, err)
 
-		tmp.Interface().(func(*int))(&a)
+		tmp(&a)
 		require.Equal(t, 1, a)
 	})
 
 	t.Run("test alias", func(t *testing.T) {
 		type myTest Test
-		require.NoError(t, c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(testProvider)))
+		require.NoError(t, Bind[*myTest](testProvider))
 
-		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		test, err := Resolve[*myTest]()
 		require.NoError(t, err)
-
-		test, ok := tmp.Interface().(*myTest)
-		require.True(t, ok)
 		require.Equal(t, 1, test.A)
 	})
 
 	t.Run("test bind instance", func(t *testing.T) {
 		testStruct := &Test{}
-		require.NoError(t, c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(any(testStruct))))
+		require.NoError(t, Bind[*Test](any(testStruct)))
 
-		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test, err := Resolve[*Test]()
 		require.Nil(t, err)
-
-		test, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
 
 		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
 	})
@@ -130,50 +108,41 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		testFunc := func(in string) (out string) {
 			return in
 		}
-		require.NoError(t, c.Bind(reflect.TypeOf(testFunc), reflect.ValueOf(testFunc)))
+		require.NoError(t, Bind[func(in string) (out string)](testFunc))
 
-		tmp, err := c.Resolve(reflect.TypeOf(testFunc))
+		test, err := Resolve[func(in string) (out string)]()
 		require.Nil(t, err)
-
-		test, ok := tmp.Interface().(func(string) string)
-		require.True(t, ok)
 
 		require.Equal(t, "1", test("1"))
 	})
 
 	t.Run("test bind value", func(t *testing.T) {
 		testStruct := Test{}
-		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(any(testStruct)))
+		err := Bind[*Test](any(testStruct))
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can not bind <container.Test> to <*container.Test>")
 	})
 
 	t.Run("test bind value no singleton", func(t *testing.T) {
 		testStruct := &Test{}
-		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(testStruct), NoSingleton())
+		err := Bind[*Test](testStruct, NoSingleton())
 		require.NoError(t, err)
 
-		tmp, err := c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test, err := Resolve[*Test]()
 		require.Nil(t, err)
 
-		test, ok := tmp.Interface().(*Test)
-		require.True(t, ok)
-
-		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+		require.Same(t, test, testStruct)
 
 		testStruct = test
 
-		tmp, err = c.Resolve(reflect.TypeOf((*Test)(nil)))
+		test, err = Resolve[*Test]()
 		require.Nil(t, err)
 
-		test, ok = tmp.Interface().(*Test)
-		require.True(t, ok)
-
-		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
+		require.Same(t, test, testStruct)
 	})
 
 	t.Run("test bind error1", func(t *testing.T) {
-		err := c.Bind(reflect.TypeOf((*Test)(nil)), reflect.ValueOf(func() {}))
+		err := Bind[*Test](func() {})
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "can not bind <func()> to <*container.Test>")
 	})
@@ -181,14 +150,11 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	t.Run("test bind convertable", func(t *testing.T) {
 		type myTest Test
 		test := &Test{}
-		err := c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(test))
+		err := Bind[*myTest](test)
 		require.NoError(t, err)
 
-		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		testStruct, err := Resolve[*myTest]()
 		require.Nil(t, err)
-
-		testStruct, ok := tmp.Interface().(*myTest)
-		require.True(t, ok)
 
 		require.Equal(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
 	})
@@ -196,24 +162,18 @@ func TestContainer_BindAndResolve(t *testing.T) {
 	t.Run("test bind convertable not singleton", func(t *testing.T) {
 		type myTest Test
 		test := &Test{}
-		err := c.Bind(reflect.TypeOf((*myTest)(nil)), reflect.ValueOf(test), NoSingleton())
+		err := Bind[*myTest](test, NoSingleton())
 		require.NoError(t, err)
 
-		tmp, err := c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		testStruct, err := Resolve[*myTest]()
 		require.Nil(t, err)
 
-		testStruct, ok := tmp.Interface().(*myTest)
-		require.True(t, ok)
+		require.NotSame(t, test, testStruct)
 
-		require.NotEqual(t, fmt.Sprintf("%p", test), fmt.Sprintf("%p", testStruct))
-
-		tmp, err = c.Resolve(reflect.TypeOf((*myTest)(nil)))
+		testStruct2, err := Resolve[*myTest]()
 		require.Nil(t, err)
 
-		testStruct2, ok := tmp.Interface().(*myTest)
-		require.True(t, ok)
-
-		require.NotEqual(t, fmt.Sprintf("%p", testStruct), fmt.Sprintf("%p", testStruct2))
+		require.Same(t, testStruct, testStruct2)
 	})
 
 	t.Run("cycleResolve1", func(t *testing.T) {
@@ -258,30 +218,30 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.Same(t, s13, s12.s13)
 	})
 
-	//t.Run("cycleResolve3", func(t *testing.T) {
-	//	err := Bind[*Struct111](NewStruct111)
-	//	require.NoError(t, err)
-	//	err = Bind[*Struct112](NewStruct112)
-	//	require.NoError(t, err)
-	//	err = Bind[*Struct113](NewStruct113)
-	//	require.NoError(t, err)
-	//
-	//	s111, err := Resolve[*Struct111]()
-	//	require.NoError(t, err)
-	//
-	//	s112, err := Resolve[*Struct112]()
-	//	require.NoError(t, err)
-	//
-	//	s113, err := Resolve[*Struct113]()
-	//	require.NoError(t, err)
-	//
-	//	require.Same(t, s111, s113.s111)
-	//	require.Same(t, s111, s112.s111)
-	//	require.Same(t, s112, s111.s112)
-	//	require.Same(t, s112, s113.s112)
-	//	require.Same(t, s113, s112.s113)
-	//	require.Same(t, s113, s111.s113)
-	//})
+	t.Run("cycleResolve3", func(t *testing.T) {
+		err := Bind[*Struct111](NewStruct111)
+		require.NoError(t, err)
+		err = Bind[*Struct112](NewStruct112)
+		require.NoError(t, err)
+		err = Bind[*Struct113](NewStruct113)
+		require.NoError(t, err)
+
+		s111, err := Resolve[*Struct111]()
+		require.NoError(t, err)
+
+		s112, err := Resolve[*Struct112]()
+		require.NoError(t, err)
+
+		s113, err := Resolve[*Struct113]()
+		require.NoError(t, err)
+
+		require.Same(t, s111, s113.s111)
+		require.Same(t, s111, s112.s111)
+		require.Same(t, s112, s111.s112)
+		require.Same(t, s112, s113.s112)
+		require.Same(t, s113, s112.s113)
+		require.Same(t, s113, s111.s113)
+	})
 }
 
 func NewStruct2(s1 *Struct1) *Struct2 {
@@ -374,17 +334,24 @@ type Struct13 struct {
 	s11 *Struct11
 }
 
+type Struct4 struct {
+	f func() int
+}
+
 func testFunc() int {
 	return 1
 }
 
 func TestXxx(t *testing.T) {
-	s1 := reflect.ValueOf(NewStruct1).Call([]reflect.Value{reflect.ValueOf((*Struct2)(nil))})[0]
-	s2 := reflect.ValueOf(NewStruct2).Call([]reflect.Value{s1})[0]
-	ss1 := s1
-	s1.Elem().Set(reflect.ValueOf(NewStruct1).Call([]reflect.Value{s2})[0].Elem())
+	s4 := &Struct4{}
+	v := reflect.ValueOf(s4).Elem()
+	v2 := reflect.New(reflect.TypeOf(testFunc))
+	v2.Elem().Set(reflect.ValueOf(testFunc))
+	av := reflect.NewAt(reflect.TypeOf(testFunc), v.Addr().UnsafePointer())
+	av.Elem().Set(reflect.ValueOf(testFunc))
+	require.Equal(t, 1, s4.f())
+}
 
-	println(s2.Interface().(*Struct2).S1.A)
-	println(s1.Interface().(*Struct1).S2.A)
-	fmt.Printf("%p %p\n", ss1.Interface().(*Struct1), s1.Interface().(*Struct1))
+func TestXxx2(t *testing.T) {
+	println(reflect.New(reflect.TypeOf(testFunc)).Elem().IsNil())
 }

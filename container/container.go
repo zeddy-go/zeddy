@@ -6,17 +6,26 @@ import (
 	"fmt"
 	"github.com/zeddy-go/zeddy/errx"
 	"reflect"
+	"sync"
 )
 
 var (
-	ErrNotFound     = errors.New("not found")
-	ErrCanNotBind   = errors.New("can not bind")
-	ErrTypeNotMatch = errors.New("type not match")
+	ErrNotFound = errors.New("not found")
 )
 
 type provider struct {
 	Value     reflect.Value
 	Singleton bool
+}
+
+type bindOpts struct {
+	Singleton bool
+}
+
+func NoSingleton() func(*bindOpts) {
+	return func(opts *bindOpts) {
+		opts.Singleton = false
+	}
 }
 
 func NewContainer() *Container {
@@ -31,24 +40,6 @@ type Container struct {
 	instances map[reflect.Type]reflect.Value
 }
 
-type bindOpts struct {
-	Singleton bool
-}
-
-// AsSingleton enable singleton mode
-// Deprecated: singleton mode is now default enabled
-func AsSingleton() func(*bindOpts) {
-	return func(opts *bindOpts) {
-		opts.Singleton = true
-	}
-}
-
-func NoSingleton() func(*bindOpts) {
-	return func(opts *bindOpts) {
-		opts.Singleton = false
-	}
-}
-
 func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bindOpts)) (err error) {
 	options := &bindOpts{
 		Singleton: true,
@@ -59,13 +50,50 @@ func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bind
 
 	delete(c.instances, t)
 	if canBindConsistent(t, value) {
-		c.bindConsistent(t, value, options)
+		err = c.bindInstance(t, value, options)
 	} else if canBindProvider(t, value) {
 		err = c.bindProvider(t, value, options)
 	} else {
 		err = errx.New(fmt.Sprintf("can not bind <%s> to <%s>", value.Type(), t))
 	}
 
+	return
+}
+
+func canBindConsistent(t reflect.Type, value reflect.Value) bool {
+	if t == value.Type() {
+		return true
+	}
+
+	if value.Type().ConvertibleTo(t) {
+		return true
+	}
+
+	return false
+}
+
+// bindConsistent 目标类型与给定值类型一致的情况
+func (c *Container) bindInstance(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
+	if t != value.Type() {
+		value, err = c.convert(t, value)
+		if err != nil {
+			return
+		}
+	}
+
+	c.instances[t] = value
+
+	return
+}
+
+func (c *Container) convert(t reflect.Type, value reflect.Value) (result reflect.Value, err error) {
+	if t == value.Type() {
+		result = value
+	} else if value.Type().ConvertibleTo(t) {
+		result = value.Convert(t)
+	} else {
+		err = errx.New(fmt.Sprintf("can not convert <%s> to <%s>", value.Type().String(), t.String()))
+	}
 	return
 }
 
@@ -92,18 +120,6 @@ func canBindProvider(t reflect.Type, value reflect.Value) bool {
 	return false
 }
 
-func canBindConsistent(t reflect.Type, value reflect.Value) bool {
-	if t == value.Type() {
-		return true
-	}
-
-	if value.Type().ConvertibleTo(t) {
-		return true
-	}
-
-	return false
-}
-
 func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
 	c.providers[t] = &provider{
 		Value:     value,
@@ -113,107 +129,42 @@ func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *b
 	return
 }
 
-// bindConsistent 目标类型与给定值类型一致的情况
-func (c *Container) bindConsistent(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
-	//如果要绑定的类型是函数, 那就无视options中的singleton选项, 直接绑定到instances去
-	if t.Kind() == reflect.Func {
-		c.instances[t] = value
-		return
-	}
-
-	//如果要绑定的类型不是函数, 就要判断是否为singleton, 来做合适的绑定
-	if options.Singleton {
-		var tmp reflect.Value
-		tmp, err = c.convert(t, value)
-		if err != nil {
-			return
-		}
-		c.instances[t] = tmp
-		return
-	}
-
-	c.providers[t] = &provider{
-		Value: reflect.ValueOf(func() any {
-			return reflect.New(value.Type().Elem()).Interface()
-		}),
-	}
-
-	return
-}
-
-func (c *Container) convert(t reflect.Type, value reflect.Value) (result reflect.Value, err error) {
-	if t == value.Type() {
-		result = value
-	} else if value.Type().ConvertibleTo(t) {
-		result = value.Convert(t)
-	} else {
-		err = errx.New(fmt.Sprintf("can not convert <%s> to <%s>", value.Type().String(), t.String()))
-	}
-	return
-}
-
 func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
-	_, result, err = c.resolve(context.Background(), t)
-
-	return
+	return c.resolve(context.Background(), t)
 }
 
-func (c *Container) resolve(ctx context.Context, t reflect.Type) (newCtx context.Context, result reflect.Value, err error) {
-	newCtx = ctx
+func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect.Value, err error) {
 	result, ok := c.instances[t]
 	if ok {
 		return
 	}
 
-	chain := newCtx.Value("chain")
-	if chain == nil {
+	var chain []reflect.Type
+	tmp := ctx.Value("chain")
+	if tmp == nil {
 		chain = []reflect.Type{}
-		newCtx = context.WithValue(newCtx, "chain", chain)
+	} else {
+		chain = tmp.([]reflect.Type)
 	}
 
-	for _, item := range chain.([]reflect.Type) {
+	for _, item := range chain {
 		if item == t {
 			result = reflect.New(t).Elem()
-			chain = append(chain.([]reflect.Type), t)
-			newCtx = context.WithValue(newCtx, "chain", chain)
 			return
 		}
 	}
 
 	f, ok := c.providers[t]
 	if ok {
-		chain = append(chain.([]reflect.Type), t)
-		newCtx = context.WithValue(newCtx, "chain", chain)
-		currentLen := len(chain.([]reflect.Type))
-
-		newCtx, result, err = c.invokeAndGetType(newCtx, f.Value, t)
+		chain = append(chain, t)
+		ctx := context.WithValue(ctx, "chain", chain)
+		result, err = c.invokeAndGetType(ctx, f.Value, t)
 		if err != nil {
 			return
 		}
+
 		if f.Singleton {
 			c.instances[t] = result
-		}
-
-		newChain := newCtx.Value("chain").([]reflect.Type)
-
-		if currentLen == len(newChain) {
-			newChain = newChain[:len(newChain)-1]
-			newCtx = context.WithValue(newCtx, "chain", newChain)
-		} else if currentLen < len(newChain) && newChain[len(newChain)-1] == t {
-			for _, tt := range newChain[currentLen : len(newChain)-1] {
-				if r, ok := c.instances[tt]; ok {
-					if f, ok := c.providers[tt]; ok {
-						var result2 reflect.Value
-						_, result2, err = c.invokeAndGetType(context.Background(), f.Value, tt)
-						if err != nil {
-							return
-						}
-						r.Elem().Set(result2.Elem())
-					}
-				}
-			}
-			newChain = newChain[:currentLen-1]
-			newCtx = context.WithValue(newCtx, "chain", newChain)
 		}
 
 		return
@@ -223,19 +174,9 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (newCtx context
 	return
 }
 
-func (c *Container) invokeAndGetType(ctx context.Context, f reflect.Value, resultType reflect.Type) (newCtx context.Context, result reflect.Value, err error) {
-	newCtx, results, err := c.invoke(ctx, f)
+func (c *Container) invokeAndGetType(ctx context.Context, f reflect.Value, resultType reflect.Type) (result reflect.Value, err error) {
+	results, err := c.invoke(ctx, f)
 	if err != nil {
-		return
-	}
-
-	if len(results) == 0 {
-		err = errors.New("no result returned")
-		return
-	}
-
-	if len(results) == 2 && !results[1].IsNil() {
-		err = results[1].Interface().(error)
 		return
 	}
 
@@ -264,34 +205,30 @@ type invokeOpts struct {
 	params map[int]any
 }
 
-func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
-	_, results, err = c.invoke(context.Background(), f, opts...)
-	return
-}
+var waits = make(map[reflect.Type][]reflect.Value)
+var waitsLock sync.Mutex
 
-func (c *Container) invoke(ctx context.Context, f reflect.Value, opts ...func(*invokeOpts)) (newCtx context.Context, results []reflect.Value, err error) {
-	newCtx = ctx
+func (c *Container) invoke(ctx context.Context, f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
 	options := &invokeOpts{}
 	for _, opt := range opts {
 		opt(options)
 	}
 
 	p := make([]reflect.Value, 0, f.Type().NumIn())
+	ts := make([]reflect.Type, 0, f.Type().NumIn())
 	for i := 0; i < f.Type().NumIn(); i++ {
 		var param reflect.Value
-		if len(options.params) > 0 {
-			if p, ok := options.params[i]; ok {
-				param = reflect.ValueOf(p)
-			} else {
-				newCtx, param, err = c.resolve(ctx, f.Type().In(i))
-				if err != nil {
-					return
-				}
-			}
-		} else {
-			newCtx, param, err = c.resolve(ctx, f.Type().In(i))
+		if len(options.params) <= 0 {
+			param, err = c.resolve(ctx, f.Type().In(i))
 			if err != nil {
 				return
+			}
+			if param.IsNil() {
+				ts = append(ts, f.Type().In(i))
+			}
+		} else {
+			if p, ok := options.params[i]; ok {
+				param = reflect.ValueOf(p)
 			}
 		}
 
@@ -300,7 +237,61 @@ func (c *Container) invoke(ctx context.Context, f reflect.Value, opts ...func(*i
 
 	results = f.Call(p)
 
+	if len(results) > 0 && !results[len(results)-1].IsNil() {
+		var ok bool
+		if err, ok = results[len(results)-1].Interface().(error); ok {
+			return
+		}
+	}
+
+	if len(waits) > 0 {
+		waitsLock.Lock()
+		for _, result := range results {
+			if targets, ok := waits[result.Type()]; ok {
+				for _, target := range targets {
+					target.Elem().Set(result)
+				}
+				delete(waits, result.Type())
+			}
+		}
+		waitsLock.Unlock()
+	}
+
+	if len(ts) > 0 {
+		waitsLock.Lock()
+		for _, result := range results {
+			if result.IsNil() {
+				continue
+			}
+			v := reflect.Indirect(result)
+			if v.Kind() != reflect.Struct {
+				continue
+			}
+
+			for i := 0; i < v.NumField(); i++ {
+				field := v.Field(i)
+				for _, t := range ts {
+					if t == field.Type() {
+						target := reflect.NewAt(t, field.Addr().UnsafePointer())
+						targets, ok := waits[t]
+						if !ok {
+							targets = make([]reflect.Value, 0, 1)
+						}
+						targets = append(targets, target)
+						waits[t] = targets
+						break
+					}
+				}
+			}
+		}
+		waitsLock.Unlock()
+	}
+
 	return
+}
+
+func (c *Container) Invoke(f reflect.Value, opts ...func(*invokeOpts)) (results []reflect.Value, err error) {
+	return c.invoke(context.Background(), f, opts...)
 }
 
 func (c *Container) Has(t reflect.Type) bool {
