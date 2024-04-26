@@ -157,7 +157,7 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect
 	f, ok := c.providers[t]
 	if ok {
 		chain = append(chain, t)
-		ctx := context.WithValue(ctx, "chain", chain)
+		ctx = context.WithValue(ctx, "chain", chain)
 		result, err = c.invokeAndGetType(ctx, f.Value, t)
 		if err != nil {
 			return
@@ -170,7 +170,49 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect
 		return
 	}
 
-	err = errx.Wrap(ErrNotFound, fmt.Sprintf("type <%s>", t.String()))
+	result, err = c.resolveSlow(ctx, t)
+	if err != nil {
+		return
+	}
+	if !result.IsValid() {
+		err = errx.Wrap(ErrNotFound, fmt.Sprintf("type <%s>", t.String()))
+		return
+	}
+
+	return
+}
+
+// resolveSlow 尝试对已有类型进行转换
+func (c *Container) resolveSlow(ctx context.Context, t reflect.Type) (result reflect.Value, err error) {
+	chain := ctx.Value("chain").([]reflect.Type)
+	for typ, item := range c.instances {
+		if typ.ConvertibleTo(t) {
+			result = item.Convert(t)
+			c.instances[t] = result
+			chain = append(chain, t)
+			ctx = context.WithValue(ctx, "chain", chain)
+			return
+		}
+	}
+
+	for typ, provider := range c.providers {
+		if typ.ConvertibleTo(t) {
+			chain = append(chain, t)
+			ctx = context.WithValue(ctx, "chain", chain)
+
+			result, err = c.invokeAndGetType(ctx, provider.Value, t)
+			if err != nil {
+				return
+			}
+
+			if provider.Singleton {
+				c.instances[t] = result
+			}
+
+			return
+		}
+	}
+
 	return
 }
 

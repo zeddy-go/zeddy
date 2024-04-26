@@ -242,7 +242,50 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.Same(t, s113, s112.s113)
 		require.Same(t, s113, s111.s113)
 	})
+
+	t.Run("cycleAndConvertResolve", func(t *testing.T) {
+		err := Bind[*Struct1111](NewStruct1111)
+		require.NoError(t, err)
+		err = Bind[*Struct1112](NewStruct1112)
+		require.NoError(t, err)
+
+		s1111, err := Resolve[*Struct1111]()
+		require.NoError(t, err)
+
+		s1112, err := Resolve[*Struct1112]()
+		require.NoError(t, err)
+
+		s1113, err := Resolve[*Struct1113]()
+		require.NoError(t, err)
+
+		require.NotSame(t, s1112, s1113)
+		require.Same(t, s1111, s1112.s1111)
+		require.NotSame(t, s1112, s1111.s1113)
+		require.True(t, s1111.A)
+		require.True(t, s1112.B)
+		require.True(t, s1113.B)
+	})
 }
+
+func NewStruct1111(s1113 *Struct1113) *Struct1111 {
+	return &Struct1111{A: true, s1113: s1113}
+}
+
+type Struct1111 struct {
+	A     bool
+	s1113 *Struct1113
+}
+
+func NewStruct1112(s1111 *Struct1111) *Struct1112 {
+	return &Struct1112{B: true, s1111: s1111}
+}
+
+type Struct1112 struct {
+	B     bool
+	s1111 *Struct1111
+}
+
+type Struct1113 Struct1112
 
 func NewStruct2(s1 *Struct1) *Struct2 {
 	return &Struct2{
