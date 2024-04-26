@@ -143,6 +143,7 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect
 	tmp := ctx.Value("chain")
 	if tmp == nil {
 		chain = []reflect.Type{}
+		ctx = context.WithValue(ctx, "chain", chain)
 	} else {
 		chain = tmp.([]reflect.Type)
 	}

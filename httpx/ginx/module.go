@@ -45,6 +45,17 @@ type Module struct {
 }
 
 func (m *Module) Init() (err error) {
+	var c *viper.Viper
+	if m.prefix != "" {
+		c = viper.Sub(m.prefix)
+	} else {
+		c = viper.GetViper()
+	}
+
+	if c.GetBool("cors") {
+		m.router.Use(CORS)
+	}
+
 	err = container.Bind[Router](m)
 	if err != nil {
 		return
