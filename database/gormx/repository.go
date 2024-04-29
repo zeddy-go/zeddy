@@ -254,6 +254,10 @@ func apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 			if err != nil {
 				return
 			}
+		case database.Order:
+			for key, value := range x {
+				newDB = newDB.Order(key + " " + value)
+			}
 		default:
 			err = errx.New(fmt.Sprintf("unsupported condition type: %T", condition))
 			return

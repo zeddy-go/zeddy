@@ -36,3 +36,5 @@ type IRepository[Entity any] interface {
 type ConditionApplier[DB any] interface {
 	Apply(DB) (DB, error)
 }
+
+type Order map[string]string
