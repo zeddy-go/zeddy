@@ -27,7 +27,7 @@ type SnowflakeID struct {
 func (s *SnowflakeID) BeforeCreate(tx *gorm.DB) (err error) {
 	snowflake, err := container.Resolve[*sonyflake.Sonyflake]()
 	if err != nil {
-		panic(err)
+		return
 	}
 	if s.ID == 0 {
 		s.ID, err = snowflake.NextID()
