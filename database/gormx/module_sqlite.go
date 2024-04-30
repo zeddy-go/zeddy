@@ -58,7 +58,7 @@ func (m *Module) Init() (err error) {
 		return
 	}
 
-	err = container.Bind[*DBHolder](NewDBHolder, container.AsSingleton())
+	err = container.Bind[*GormDBHolder](NewGormDBHolder, container.AsSingleton())
 	if err != nil {
 		return
 	}

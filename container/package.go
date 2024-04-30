@@ -34,6 +34,14 @@ func Resolve[T any]() (result T, err error) {
 	return
 }
 
+func MustResolve[T any]() (result T) {
+	result, err := Resolve[T]()
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
 func Has[T any]() bool {
 	return Default().Has(reflect.TypeOf((*T)(nil)).Elem())
 }

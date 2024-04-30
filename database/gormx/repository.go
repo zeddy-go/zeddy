@@ -3,6 +3,7 @@ package gormx
 import (
 	"errors"
 	"fmt"
+	"github.com/zeddy-go/zeddy/container"
 	"github.com/zeddy-go/zeddy/database"
 	"github.com/zeddy-go/zeddy/errx"
 	"github.com/zeddy-go/zeddy/mapper"
@@ -37,11 +38,11 @@ func defaultE2M[PO any, Entity any](dst *PO, src *Entity) error {
 	return mapper.SimpleMap(dst, src)
 }
 
-func NewRepository[PO any, Entity any](db *gorm.DB, opts ...func(*Repository[PO, Entity])) *Repository[PO, Entity] {
+func NewRepository[PO any, Entity any](opts ...func(*Repository[PO, Entity])) *Repository[PO, Entity] {
 	r := &Repository[PO, Entity]{
-		IDBHolder: NewDBHolder(db),
-		m2e:       defaultM2E[PO, Entity],
-		e2m:       defaultE2M[PO, Entity],
+		GormDBHolder: container.MustResolve[*GormDBHolder](),
+		m2e:          defaultM2E[PO, Entity],
+		e2m:          defaultE2M[PO, Entity],
 	}
 
 	for _, opt := range opts {
@@ -52,7 +53,7 @@ func NewRepository[PO any, Entity any](db *gorm.DB, opts ...func(*Repository[PO,
 }
 
 type Repository[PO any, Entity any] struct {
-	database.IDBHolder[*gorm.DB]
+	*GormDBHolder
 	m2e func(dst *Entity, src *PO) error
 	e2m func(dst *PO, src *Entity) error
 }
@@ -212,26 +213,6 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...any
 	return
 }
 
-func (r *Repository[PO, Entity]) ListInBatch(batchSize int, callback func(repo database.IRepository[Entity], list []*Entity) error) (err error) {
-	return r.Transaction(func() (err error) {
-		var list []PO
-		return r.GetDB().FindInBatches(&list, batchSize, func(tx *gorm.DB, batch int) (err error) {
-			entities := make([]*Entity, 0, len(list))
-			for _, item := range list {
-				var dst Entity
-				err = r.M2E(&dst, &item)
-				if err != nil {
-					return
-				}
-				entities = append(entities, &dst)
-			}
-			repo := NewRepository[PO, Entity](tx, WithE2M(r.e2m), WithM2E(r.m2e))
-			err = callback(repo, entities)
-			return
-		}).Error
-	})
-}
-
 func apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 	if len(conditions) == 0 {
 		return db, nil
@@ -250,17 +231,27 @@ func apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 				return
 			}
 		case [][]any:
+			xx := make([]database.Condition, 0, len(x))
+			for _, item := range x {
+				xx = append(xx, item)
+			}
+			newDB, err = applyCondition(newDB, xx...)
+			if err != nil {
+				return
+			}
+		case database.Condition:
+			newDB, err = applyCondition(newDB, x)
+			if err != nil {
+				return
+			}
+		case []database.Condition:
 			newDB, err = applyCondition(newDB, x...)
 			if err != nil {
 				return
 			}
 		case database.Order:
-			for key, value := range x {
-				if key == "" {
-					newDB = newDB.Order(value)
-				} else {
-					newDB = newDB.Order(key + " " + value)
-				}
+			for _, item := range x {
+				newDB = newDB.Order(item)
 			}
 		default:
 			err = errx.New(fmt.Sprintf("unsupported condition type: %T", condition))

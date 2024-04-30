@@ -92,7 +92,7 @@ func (m *Module) Init() (err error) {
 		return
 	}
 
-	err = container.Bind[database.ITransaction](NewDBHolder)
+	err = container.Bind[*GormDBHolder](NewGormDBHolder)
 	if err != nil {
 		return
 	}

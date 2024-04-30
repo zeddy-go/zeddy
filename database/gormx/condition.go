@@ -3,6 +3,7 @@ package gormx
 import (
 	"fmt"
 	"github.com/zeddy-go/zeddy/convert"
+	"github.com/zeddy-go/zeddy/database"
 	"reflect"
 	"strings"
 
@@ -28,7 +29,7 @@ func quote(field string) string {
 	return strings.Join(arr, ".")
 }
 
-func applyCondition(db *gorm.DB, conditions ...[]any) (newDB *gorm.DB, err error) {
+func applyCondition(db *gorm.DB, conditions ...database.Condition) (newDB *gorm.DB, err error) {
 	newDB = db
 	for _, c := range conditions {
 		if len(c) < 2 {

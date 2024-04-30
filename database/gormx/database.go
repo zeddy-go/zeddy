@@ -20,20 +20,20 @@ func WithReadOnly(readOnly bool) func(*sql.TxOptions) {
 	}
 }
 
-func NewDBHolder(db *gorm.DB) *DBHolder {
-	return &DBHolder{
+func NewGormDBHolder(db *gorm.DB) *GormDBHolder {
+	return &GormDBHolder{
 		root: db,
 		txs:  make(map[int64]*gorm.DB),
 	}
 }
 
-type DBHolder struct {
+type GormDBHolder struct {
 	root *gorm.DB
 	txs  map[int64]*gorm.DB
 	lock sync.Mutex
 }
 
-func (d *DBHolder) BeginTx(sets ...func(*sql.TxOptions)) (tx *gorm.DB) {
+func (d *GormDBHolder) BeginTx(sets ...func(*sql.TxOptions)) (tx *gorm.DB) {
 	db := d.root.Session(&gorm.Session{
 		SkipDefaultTransaction: true,
 		Logger:                 d.root.Logger,
@@ -45,7 +45,7 @@ func (d *DBHolder) BeginTx(sets ...func(*sql.TxOptions)) (tx *gorm.DB) {
 	return db.Begin(opts)
 }
 
-func (d *DBHolder) TransactionTx(f func(tx *gorm.DB) error, sets ...func(*sql.TxOptions)) (err error) {
+func (d *GormDBHolder) TransactionTx(f func(tx *gorm.DB) error, sets ...func(*sql.TxOptions)) (err error) {
 	tx := d.BeginTx(sets...)
 	err = f(tx)
 
@@ -58,7 +58,7 @@ func (d *DBHolder) TransactionTx(f func(tx *gorm.DB) error, sets ...func(*sql.Tx
 	return
 }
 
-func (d *DBHolder) Transaction(f func() error, sets ...func(*sql.TxOptions)) (err error) {
+func (d *GormDBHolder) Transaction(f func() error, sets ...func(*sql.TxOptions)) (err error) {
 	d.Begin(sets...)
 	err = f()
 	if err != nil {
@@ -70,7 +70,7 @@ func (d *DBHolder) Transaction(f func() error, sets ...func(*sql.TxOptions)) (er
 	return
 }
 
-func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
+func (d *GormDBHolder) Begin(sets ...func(*sql.TxOptions)) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 
@@ -81,7 +81,7 @@ func (d *DBHolder) Begin(sets ...func(*sql.TxOptions)) {
 	}
 }
 
-func (d *DBHolder) Commit() error {
+func (d *GormDBHolder) Commit() error {
 	d.lock.Lock()
 	defer func() {
 		delete(d.txs, routine.Goid())
@@ -92,7 +92,7 @@ func (d *DBHolder) Commit() error {
 	return w.Commit().Error
 }
 
-func (d *DBHolder) Rollback() error {
+func (d *GormDBHolder) Rollback() error {
 	d.lock.Lock()
 	defer func() {
 		delete(d.txs, routine.Goid())
@@ -103,15 +103,15 @@ func (d *DBHolder) Rollback() error {
 	return w.Rollback().Error
 }
 
-func (d *DBHolder) put(db *gorm.DB) {
+func (d *GormDBHolder) put(db *gorm.DB) {
 	d.txs[routine.Goid()] = db
 }
 
-func (d *DBHolder) get() *gorm.DB {
+func (d *GormDBHolder) get() *gorm.DB {
 	return d.txs[routine.Goid()]
 }
 
-func (d *DBHolder) GetDB() (db *gorm.DB) {
+func (d *GormDBHolder) GetDB() (db *gorm.DB) {
 	d.lock.Lock()
 	defer d.lock.Unlock()
 

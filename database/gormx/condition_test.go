@@ -2,6 +2,7 @@ package gormx
 
 import (
 	"github.com/stretchr/testify/require"
+	"github.com/zeddy-go/zeddy/database"
 	"gorm.io/gorm"
 	"gorm.io/gorm/utils/tests"
 	"testing"
@@ -37,7 +38,7 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("and", func(t *testing.T) {
-		db, err := applyCondition(db, [][]any{
+		db, err := applyCondition(db, []database.Condition{
 			{"id", 1},
 			{"no", "2"},
 		}...)
@@ -56,7 +57,7 @@ func TestCondition(t *testing.T) {
 	})
 
 	t.Run("or_and", func(t *testing.T) {
-		db, err := applyCondition(db, [][]any{
+		db, err := applyCondition(db, []database.Condition{
 			{"id = ? or no = ?", 1, "2"},
 			{"id != ? or no != ?", 1, "2"},
 		}...)
