@@ -18,6 +18,11 @@ type GoroutineTransaction interface {
 	Transaction(f func() error, sets ...func(*sql.TxOptions)) error
 }
 
+type TransactionTx[T any] interface {
+	BeginTx(sets ...func(*sql.TxOptions)) T
+	TransactionTx(f func(tx T) error, sets ...func(*sql.TxOptions)) error
+}
+
 type DBHolder[DB any] interface {
 	GetDB() DB
 }
