@@ -265,6 +265,21 @@ func TestContainer_BindAndResolve(t *testing.T) {
 		require.True(t, s1112.B)
 		require.True(t, s1113.B)
 	})
+
+	t.Run("resolveKey", func(t *testing.T) {
+		err := Bind[*Struct4](NewStruct4)
+		require.NoError(t, err)
+		err = Bind[*Struct4](NewStruct4, WithKey("struct11"))
+		require.NoError(t, err)
+
+		s1, err := Resolve[*Struct4]()
+		require.NoError(t, err)
+
+		s11, err := Resolve[*Struct4](WithResolveKey("struct11"))
+		require.NoError(t, err)
+
+		require.NotSame(t, s1, s11)
+	})
 }
 
 func NewStruct1111(s1113 *Struct1113) *Struct1111 {
@@ -375,6 +390,10 @@ type Struct113 struct {
 
 type Struct13 struct {
 	s11 *Struct11
+}
+
+func NewStruct4() *Struct4 {
+	return &Struct4{}
 }
 
 type Struct4 struct {

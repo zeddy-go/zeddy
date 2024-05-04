@@ -20,6 +20,11 @@ type provider struct {
 
 type bindOpts struct {
 	Singleton bool
+	Key       string
+}
+
+type resolveOpts struct {
+	Key string
 }
 
 func NoSingleton() func(*bindOpts) {
@@ -28,16 +33,28 @@ func NoSingleton() func(*bindOpts) {
 	}
 }
 
+func WithKey(key string) func(*bindOpts) {
+	return func(opts *bindOpts) {
+		opts.Key = key
+	}
+}
+
+func WithResolveKey(key string) func(*resolveOpts) {
+	return func(opts *resolveOpts) {
+		opts.Key = key
+	}
+}
+
 func NewContainer() *Container {
 	return &Container{
-		providers: make(map[reflect.Type]*provider),
-		instances: make(map[reflect.Type]reflect.Value),
+		providers: make(map[reflect.Type]map[string]*provider),
+		instances: make(map[reflect.Type]map[string]reflect.Value),
 	}
 }
 
 type Container struct {
-	providers map[reflect.Type]*provider
-	instances map[reflect.Type]reflect.Value
+	providers map[reflect.Type]map[string]*provider
+	instances map[reflect.Type]map[string]reflect.Value
 }
 
 func (c *Container) Bind(t reflect.Type, value reflect.Value, opts ...func(*bindOpts)) (err error) {
@@ -81,7 +98,12 @@ func (c *Container) bindInstance(t reflect.Type, value reflect.Value, options *b
 		}
 	}
 
-	c.instances[t] = value
+	group, ok := c.instances[t]
+	if !ok {
+		group = make(map[string]reflect.Value)
+		c.instances[t] = group
+	}
+	group[options.Key] = value
 
 	return
 }
@@ -121,7 +143,12 @@ func canBindProvider(t reflect.Type, value reflect.Value) bool {
 }
 
 func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *bindOpts) (err error) {
-	c.providers[t] = &provider{
+	group, ok := c.providers[t]
+	if !ok {
+		group = make(map[string]*provider)
+		c.providers[t] = group
+	}
+	group[options.Key] = &provider{
 		Value:     value,
 		Singleton: options.Singleton,
 	}
@@ -129,14 +156,21 @@ func (c *Container) bindProvider(t reflect.Type, value reflect.Value, options *b
 	return
 }
 
-func (c *Container) Resolve(t reflect.Type) (result reflect.Value, err error) {
-	return c.resolve(context.Background(), t)
+func (c *Container) Resolve(t reflect.Type, opts ...func(*resolveOpts)) (result reflect.Value, err error) {
+	options := &resolveOpts{}
+	for _, opt := range opts {
+		opt(options)
+	}
+	return c.resolve(context.Background(), t, options)
 }
 
-func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect.Value, err error) {
-	result, ok := c.instances[t]
+func (c *Container) resolve(ctx context.Context, t reflect.Type, opts *resolveOpts) (result reflect.Value, err error) {
+	group, ok := c.instances[t]
 	if ok {
-		return
+		result, ok = group[opts.Key]
+		if ok {
+			return
+		}
 	}
 
 	var chain []reflect.Type
@@ -155,23 +189,32 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect
 		}
 	}
 
-	f, ok := c.providers[t]
+	group2, ok := c.providers[t]
 	if ok {
-		chain = append(chain, t)
-		ctx = context.WithValue(ctx, "chain", chain)
-		result, err = c.invokeAndGetType(ctx, f.Value, t)
-		if err != nil {
+		var f *provider
+		f, ok = group2[opts.Key]
+		if ok {
+			chain = append(chain, t)
+			ctx = context.WithValue(ctx, "chain", chain)
+			result, err = c.invokeAndGetType(ctx, f.Value, t)
+			if err != nil {
+				return
+			}
+
+			if f.Singleton {
+				group, ok = c.instances[t]
+				if !ok {
+					group = make(map[string]reflect.Value)
+					c.instances[t] = group
+				}
+				group[opts.Key] = result
+			}
+
 			return
 		}
-
-		if f.Singleton {
-			c.instances[t] = result
-		}
-
-		return
 	}
 
-	result, err = c.resolveSlow(ctx, t)
+	result, err = c.resolveSlow(ctx, t, opts)
 	if err != nil {
 		return
 	}
@@ -184,33 +227,48 @@ func (c *Container) resolve(ctx context.Context, t reflect.Type) (result reflect
 }
 
 // resolveSlow 尝试对已有类型进行转换
-func (c *Container) resolveSlow(ctx context.Context, t reflect.Type) (result reflect.Value, err error) {
+func (c *Container) resolveSlow(ctx context.Context, t reflect.Type, opts *resolveOpts) (result reflect.Value, err error) {
 	chain := ctx.Value("chain").([]reflect.Type)
-	for typ, item := range c.instances {
+
+	for typ, group := range c.instances {
 		if typ.ConvertibleTo(t) {
-			result = item.Convert(t)
-			c.instances[t] = result
-			chain = append(chain, t)
-			ctx = context.WithValue(ctx, "chain", chain)
-			return
+			if item, ok := group[opts.Key]; ok {
+				result = item.Convert(t)
+				group, ok := c.instances[t]
+				if !ok {
+					group = make(map[string]reflect.Value)
+					c.instances[t] = group
+				}
+				group[opts.Key] = result
+				chain = append(chain, t)
+				ctx = context.WithValue(ctx, "chain", chain)
+				return
+			}
 		}
 	}
 
-	for typ, provider := range c.providers {
+	for typ, group := range c.providers {
 		if typ.ConvertibleTo(t) {
-			chain = append(chain, t)
-			ctx = context.WithValue(ctx, "chain", chain)
+			if provider, ok := group[opts.Key]; ok {
+				chain = append(chain, t)
+				ctx = context.WithValue(ctx, "chain", chain)
 
-			result, err = c.invokeAndGetType(ctx, provider.Value, t)
-			if err != nil {
+				result, err = c.invokeAndGetType(ctx, provider.Value, t)
+				if err != nil {
+					return
+				}
+
+				if provider.Singleton {
+					group, ok := c.instances[t]
+					if !ok {
+						group = make(map[string]reflect.Value)
+						c.instances[t] = group
+					}
+					group[opts.Key] = result
+				}
+
 				return
 			}
-
-			if provider.Singleton {
-				c.instances[t] = result
-			}
-
-			return
 		}
 	}
 
@@ -246,6 +304,7 @@ func WithParams(params map[int]any) func(*invokeOpts) {
 
 type invokeOpts struct {
 	params map[int]any
+	keys   map[int]string
 }
 
 var waits = make(map[reflect.Type][]reflect.Value)
@@ -262,7 +321,7 @@ func (c *Container) invoke(ctx context.Context, f reflect.Value, opts ...func(*i
 	for i := 0; i < f.Type().NumIn(); i++ {
 		var param reflect.Value
 		if len(options.params) <= 0 {
-			param, err = c.resolve(ctx, f.Type().In(i))
+			param, err = c.resolve(ctx, f.Type().In(i), &resolveOpts{Key: options.keys[i]})
 			if err != nil {
 				return
 			}

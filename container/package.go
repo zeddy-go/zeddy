@@ -25,8 +25,8 @@ func Bind[T any](providerOrInstance any, sets ...func(*bindOpts)) (err error) {
 	return Default().Bind(reflect.TypeOf((*T)(nil)).Elem(), reflect.ValueOf(providerOrInstance), sets...)
 }
 
-func Resolve[T any]() (result T, err error) {
-	res, err := Default().Resolve(reflect.TypeOf((*T)(nil)).Elem())
+func Resolve[T any](opts ...func(*resolveOpts)) (result T, err error) {
+	res, err := Default().Resolve(reflect.TypeOf((*T)(nil)).Elem(), opts...)
 	if err != nil {
 		return
 	}

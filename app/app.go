@@ -19,8 +19,8 @@ var migrates []any
 
 var seeds []any
 
-// BeforeWaits 等待钩子
-func BeforeWaits(funcs ...any) {
+// BeforeWait 等待钩子
+func BeforeWait(funcs ...any) {
 	beforeWaits = append(beforeWaits, funcs...)
 }
 
