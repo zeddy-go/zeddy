@@ -3,9 +3,10 @@ package errx
 import (
 	"errors"
 	"fmt"
+	"runtime"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"runtime"
 )
 
 func WithCode(code int) func(map[InfoKey]any) {
@@ -104,7 +105,7 @@ func WrapWithSkip(err error, message string, skip int, sets ...func(map[InfoKey]
 			e.info[File],
 			e.info[Line],
 			e.info[Msg],
-			x.(error).Error(),
+			x.Error(),
 		)
 	}
 
@@ -158,8 +159,7 @@ func (e Errx) Get(field InfoKey) (value any, ok bool) {
 }
 
 func (e Errx) MustGet(field InfoKey) (value any) {
-	value, _ = e.info[field]
-	return
+	return e.info[field]
 }
 
 func (e Errx) Format(s fmt.State, c rune) {

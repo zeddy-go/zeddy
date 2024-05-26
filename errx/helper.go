@@ -3,9 +3,10 @@ package errx
 import (
 	"errors"
 	"fmt"
-	"google.golang.org/grpc/status"
 	"reflect"
 	"strconv"
+
+	"google.golang.org/grpc/status"
 )
 
 // PrintGrpcStatusErrorDetail 打印err的详细信息
@@ -49,8 +50,7 @@ func PbValue2Any(pbValue *Value) (v any) {
 func PbList2SliceAny(pbList *List) (s []any) {
 	s = make([]any, len(pbList.List))
 	for _, item := range pbList.List {
-		var res any
-		res = PbValue2Any(item)
+		res := PbValue2Any(item)
 		s = append(s, res)
 	}
 
@@ -65,7 +65,6 @@ func Map2Pb(val any) (m map[string]*Value) {
 		key := iter.Key()
 		if key.Kind() != reflect.String {
 			panic(errors.New("map key can only be string"))
-			return
 		}
 		v := Any2PbValue(iter.Value().Interface())
 		if v != nil {
@@ -129,8 +128,7 @@ func Any2PbValue(val any) (value *Value) {
 			}
 			for i := 0; i < v.Len(); i++ {
 				item := v.Index(i)
-				var pbValue *Value
-				pbValue = Any2PbValue(item.Interface())
+				pbValue := Any2PbValue(item.Interface())
 				s.ListVal.List = append(s.ListVal.List, pbValue)
 			}
 			value.Kind = s
