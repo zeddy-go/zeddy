@@ -1,6 +1,6 @@
 module github.com/zeddy-go/zeddy
 
-go 1.21.8
+go 1.22
 
 require (
 	github.com/bufbuild/protovalidate-go v0.5.2
