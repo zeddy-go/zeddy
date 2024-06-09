@@ -4,22 +4,25 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"net"
-	"path/filepath"
-	"testing"
-	"time"
 )
 
 func TestXxx(t *testing.T) {
 	prefix, _ := filepath.Abs(".")
+	prefix = strings.Replace(prefix, "\\", "/", -1)
 	err := New("123")
 	err2 := WrapWithSkip(err, "321", 0)
-	require.Equal(t, prefix+"/err_test.go:19:321\n"+prefix+"/err_test.go:18:123\n\n", fmt.Sprintf("%#v\n", err2))
+	require.Equal(t, prefix+"/err_test.go:22:321\n"+prefix+"/err_test.go:21:123\n\n", fmt.Sprintf("%#v\n", err2))
 	require.Equal(t, "321: 123", err2.Error())
-	require.Equal(t, prefix+"/err_test.go:19:321\n\n", fmt.Sprintf("%+v\n", err2))
+	require.Equal(t, prefix+"/err_test.go:22:321\n\n", fmt.Sprintf("%+v\n", err2))
 }
 
 func TestGrpcStatus(t *testing.T) {
@@ -27,7 +30,8 @@ func TestGrpcStatus(t *testing.T) {
 	e2 := NewFromStatus(e.GRPCStatus())
 	require.NotNil(t, e2)
 	prefix, _ := filepath.Abs(".")
-	expect := prefix + "/err_test.go:26:test2\n" + prefix + "/err_test.go:26:test1\n" + "test"
+	prefix = strings.Replace(prefix, "\\", "/", -1)
+	expect := prefix + "/err_test.go:29:test2\n" + prefix + "/err_test.go:29:test1\n" + "test"
 	require.Equal(t, expect, fmt.Sprintf("%#v", e2))
 }
 
