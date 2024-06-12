@@ -111,6 +111,11 @@ func (m *Module) Group(prefix string, middlewares ...any) Router {
 	}
 }
 
+func (m *Module) Use(middlewares ...any) Router {
+	m.router.Use(m.wrap(nil, middlewares...)...)
+	return m
+}
+
 func (m *Module) wrap(handler any, middlewares ...any) (handlers []gin.HandlerFunc) {
 	handlers = make([]gin.HandlerFunc, 0, len(middlewares)+1)
 	for _, item := range middlewares {

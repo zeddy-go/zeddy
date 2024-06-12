@@ -10,4 +10,5 @@ type Router interface {
 	OPTIONS(route string, handler any, middlewares ...any) Router
 	HEAD(route string, handler any, middlewares ...any) Router
 	Group(prefix string, middlewares ...any) Router
+	Use(middlewares ...any) Router
 }

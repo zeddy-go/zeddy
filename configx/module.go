@@ -63,6 +63,9 @@ func (m Module) Init() (err error) {
 		return
 	}
 
+	if viper.GetString("mode") == "" {
+		viper.Set("mode", ModeLocal)
+	}
 	setLog(viper.GetViper())
 
 	return
