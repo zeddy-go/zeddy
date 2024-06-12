@@ -38,6 +38,7 @@ func GinMiddleware(f any) gin.HandlerFunc {
 
 		if len(results) == 0 {
 			ctx.Next()
+			return
 		}
 		if results[0].Interface() != nil {
 			parseAndResponse(results...).Do(ctx)
