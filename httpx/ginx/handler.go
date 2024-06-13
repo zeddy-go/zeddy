@@ -185,7 +185,7 @@ func parseAndResponse(results ...reflect.Value) (resp IResponse[*gin.Context]) {
 		}
 
 		if isNumber(results[0]) {
-			tmp, err := convert.ToKind(results[0], reflect.Int)
+			tmp, err := convert.ToKindValue(results[0], reflect.Int)
 			if err != nil {
 				panic(err)
 			}
