@@ -82,9 +82,7 @@ func (m *Meta) GetMeta() (result map[string]any) {
 	if m.CurrentPage != 0 {
 		result["currentPage"] = m.CurrentPage
 	}
-	if m.Total != 0 {
-		result["total"] = m.Total
-	}
+	result["total"] = m.Total
 	if m.LastPage != 0 {
 		result["lastPage"] = m.LastPage
 	}

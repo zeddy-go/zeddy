@@ -55,3 +55,16 @@ func IndirectAndFill(v reflect.Value) reflect.Value {
 
 	return v
 }
+
+func FindField(v reflect.Value, name string) reflect.Value {
+	for v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	for i := 0; i < v.NumField(); i++ {
+		if v.Type().Field(i).Name == name {
+			return v.Field(i)
+		}
+	}
+
+	return reflect.Value{}
+}
