@@ -106,7 +106,7 @@ func MapBy[T comparable, P any](fieldName string, target []P) (result map[T]P) {
 	return
 }
 
-func GetFieldSlice[T any](target any, key string) []T {
+func GetFieldSlice[T any](key string, target any) []T {
 	v := reflect.ValueOf(target)
 	if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 		panic(errors.New("type is not slice or array"))

@@ -56,5 +56,5 @@ func TestGetFieldSlice(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, []int{1, 2, 3}, GetFieldSlice[int](s, "Item.A"))
+	require.Equal(t, []int{1, 2, 3}, GetFieldSlice[int]("Item.A", s))
 }

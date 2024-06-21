@@ -119,7 +119,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...any) (err erro
 	case map[string]any:
 		query := r.GetDB()
 		if len(conditions) > 0 {
-			query, err = apply(query, conditions...)
+			query, err = Apply(query, conditions...)
 			if err != nil {
 				return
 			}
@@ -133,7 +133,7 @@ func (r *Repository[PO, Entity]) Update(entity any, conditions ...any) (err erro
 }
 
 func (r *Repository[PO, Entity]) Delete(conditions ...any) (err error) {
-	db, err := apply(r.GetDB(), conditions...)
+	db, err := Apply(r.GetDB(), conditions...)
 	if err != nil {
 		return
 	}
@@ -143,7 +143,7 @@ func (r *Repository[PO, Entity]) Delete(conditions ...any) (err error) {
 }
 
 func (r *Repository[PO, Entity]) First(conditions ...any) (entity *Entity, err error) {
-	db, err := apply(r.GetDB(), conditions...)
+	db, err := Apply(r.GetDB(), conditions...)
 	if err != nil {
 		return
 	}
@@ -160,7 +160,7 @@ func (r *Repository[PO, Entity]) First(conditions ...any) (entity *Entity, err e
 }
 
 func (r *Repository[PO, Entity]) List(conditions ...any) (list []*Entity, err error) {
-	db, err := apply(r.GetDB(), conditions...)
+	db, err := Apply(r.GetDB(), conditions...)
 	if err != nil {
 		return
 	}
@@ -185,7 +185,7 @@ func (r *Repository[PO, Entity]) List(conditions ...any) (list []*Entity, err er
 }
 
 func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...any) (total int64, list []*Entity, err error) {
-	db, err := apply(r.GetDB(), conditions...)
+	db, err := Apply(r.GetDB(), conditions...)
 	if err != nil {
 		return
 	}
@@ -213,7 +213,7 @@ func (r *Repository[PO, Entity]) Pagination(offset, limit int, conditions ...any
 	return
 }
 
-func apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
+func Apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 	if len(conditions) == 0 {
 		return db, nil
 	}
