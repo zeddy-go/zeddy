@@ -45,38 +45,44 @@ var operaters = [...]string{
 }
 
 func NewFiltersFromCtx(ctx *gin.Context) *Filters {
-	tmp := ctx.QueryMap("filters")
+	tmp, _ := get(ctx.Request.URL.Query(), "filters")
 	for k, v := range tmp {
 		delete(tmp, k)
-		if v != "" {
-			tmp[strcase.SnakeCase(k)] = v
+		var t []string
+		for _, item := range v {
+			if item != "" {
+				t = append(t, item)
+			}
+		}
+		if len(t) > 0 {
+			tmp[strcase.SnakeCase(k)] = t
 		}
 	}
 	return &Filters{
-		m: tmp,
+		M: tmp,
 	}
 }
 
 type CustomerParser struct {
 	key   string
-	parse func(key, value string) any
+	parse func(key string, value []string) any
 }
 
 type Filters struct {
-	m map[string]string
+	M map[string][]string
 }
 
 func (f Filters) ParseAll(customerParsers ...CustomerParser) (results []any) {
-	results = make([]any, 0, len(f.m))
+	results = make([]any, 0, len(f.M))
 BIGLOOP:
-	for key, value := range f.m {
+	for key, value := range f.M {
 		for _, parser := range customerParsers {
 			if parser.key == key {
 				results = append(results, parser.parse(key, value))
 				continue BIGLOOP
 			}
 		}
-		results = append(results, parse(key, value))
+		results = append(results, parse(key, value[0]))
 	}
 	return
 }
@@ -130,4 +136,18 @@ func (s Sorts) Apply(db *gorm.DB) (newDB *gorm.DB, err error) {
 	}
 
 	return
+}
+
+func get(m map[string][]string, key string) (map[string][]string, bool) {
+	dicts := make(map[string][]string)
+	exist := false
+	for k, v := range m {
+		if i := strings.IndexByte(k, '['); i >= 1 && k[0:i] == key {
+			if j := strings.IndexByte(k[i+1:], ']'); j >= 1 {
+				exist = true
+				dicts[k[i+1:][:j]] = v
+			}
+		}
+	}
+	return dicts, exist
 }

@@ -260,3 +260,16 @@ func Apply(db *gorm.DB, conditions ...any) (newDB *gorm.DB, err error) {
 	}
 	return
 }
+
+type JoinWhere struct {
+	Direction  string
+	Table      string
+	Conditions string
+	Where      []any
+}
+
+func (j *JoinWhere) Apply(db *gorm.DB) (*gorm.DB, error) {
+	return db.
+		Joins(fmt.Sprintf("%s JOIN %s ON %s", j.Direction, j.Table, j.Conditions)).
+		Where(j.Where[0], j.Where[1:]...), nil
+}
