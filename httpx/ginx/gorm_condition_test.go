@@ -49,14 +49,14 @@ func TestPage(t *testing.T) {
 func TestFilters(t *testing.T) {
 	type test struct{}
 	f := Filters{
-		m: map[string]string{
-			"a": "!1",
-			"b": "~2",
-			"c": ">3",
-			"d": "<4",
-			"e": ">=5",
-			"f": "<=6",
-			"g": "7",
+		M: map[string][]string{
+			"a": {"!1"},
+			"b": {"~2"},
+			"c": {">3"},
+			"d": {"<4"},
+			"e": {">=5"},
+			"f": {"<=6"},
+			"g": {"7"},
 		},
 	}
 	result := f.ParseAll()
