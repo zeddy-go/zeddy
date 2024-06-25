@@ -57,13 +57,25 @@ func NewFiltersFromCtx(ctx *gin.Context) *Filters {
 	}
 }
 
+type CustomerParser struct {
+	key   string
+	parse func(key, value string) any
+}
+
 type Filters struct {
 	m map[string]string
 }
 
-func (f Filters) ParseAll() (results []any) {
+func (f Filters) ParseAll(customerParsers ...CustomerParser) (results []any) {
 	results = make([]any, 0, len(f.m))
+BIGLOOP:
 	for key, value := range f.m {
+		for _, parser := range customerParsers {
+			if parser.key == key {
+				results = append(results, parser.parse(key, value))
+				continue BIGLOOP
+			}
+		}
 		results = append(results, parse(key, value))
 	}
 	return
